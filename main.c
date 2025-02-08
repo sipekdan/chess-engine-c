@@ -23,16 +23,26 @@ void print_board(char board[64])
 	printf(" +---------------+\n");
 }
 
+
+
 int main(void)
 {
 	// run_tests();
-
+	//
 	// return 0;
 
 	srand(time(NULL));
 
-	char board[64];
-
+	char board[64] = {
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		'N', ' ', ' ', ' ', ' ', ' ', ' ', ' '
+	};
 	char init_board[64] = {
 		'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
 		'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
@@ -41,7 +51,7 @@ int main(void)
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 		'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P',
-		'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R',
+		'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'
 	};
 
 	for (int i = 0; i < 64; i++) {
@@ -49,65 +59,72 @@ int main(void)
 		printf("%3d", i);
 	}
 	putchar(10);
-
-
-	printf("Move: `%s`\n", get_move_notation(CREATE_MOVE(52, 36, NORMAL, 0), board));
-
-	return 0;
-	bool is_enpassant = false;
-	while (!is_enpassant)
+	for (Square square = 0; square < 64; square++)
 	{
+		if (is_attacked_by_piece(board, square, 'N'))
+		{
+			printf("Attacked: %d\n", square);
+		}
+	}
+
+	// printf("Move: %s\n", MOVE_TO_STRING(CREATE_MOVE(0, 63, NORMAL, 0)));
+
+	// printf("Move: `%s`\n", get_move_notation(CREATE_MOVE(52, 36, NORMAL, 0), board));
+
+	bool run_games = true;
+	while (run_games)
+	{
+
 		memcpy(board, init_board, sizeof(char) * 64);
 		Move valid_moves[256];
 		uint8_t count;
-		Castle castle = 0x3F;
+		Castle castle = INITIAL_CASTLE;
 		Move last_move = 0;
 		Player player = WHITE;
 		int move_counter = 0;
 
-		for (int i = 0; i < 2*200; i++)
+		for (int i = 0; i < 256; i++)
 		{
 			update_castle(board, &castle);
 			generate_valid_moves(board, valid_moves, &count, player, castle, last_move);
 			if (count == 0)
 			{
-				printf("GAME OVER!");
+				printf("\n----------------------");
+				printf("\nGAME OVER!");
 				exit(0);
 			}
+
 			last_move = valid_moves[rand() % count];
+
+			filter_moves(board, valid_moves, &count, is_capture_move);
+
+			if (count != 0)
+			{
+				last_move = valid_moves[rand() % count];
+			}
+
 			make_move(board, last_move);
 
-			printf("%c%d%c%d",
-				(GET_COL(GET_FROM(last_move))) + 'a',   // Convert column to 'a' - 'h'
-				9 - GET_ROW(GET_FROM(last_move)) - 1,            // Convert row to 1 - 8
-				(GET_COL(GET_TO(last_move))) + 'a',     // Convert column to 'a' - 'h'
-				9 - GET_ROW(GET_TO(last_move)) - 1             // Convert row to 1 - 8
-			);
-			if (GET_TYPE(last_move) == PROMOTION || GET_TYPE(last_move) == CASTLE)
-			{
-				printf("%c", GET_PROM(last_move) == KNIGHT ? 'N' : GET_PROM(last_move) == BISHOP ? 'B' : GET_PROM(last_move) == ROOK ? 'R' : 'Q');
-			}
-
-			// if (is_checkmate(board, WHITE, last_move) || is_checkmate(board, BLACK, last_move)
-			// 	|| is_stalemate(board, WHITE, last_move) || is_stalemate(board, BLACK, last_move))
+			// printf("%c%d%c%d",
+			// 	(GET_COL(GET_FROM(last_move))) + 'a',   // Convert column to 'a' - 'h'
+			// 	9 - GET_ROW(GET_FROM(last_move)) - 1,            // Convert row to 1 - 8
+			// 	(GET_COL(GET_TO(last_move))) + 'a',     // Convert column to 'a' - 'h'
+			// 	9 - GET_ROW(GET_TO(last_move)) - 1             // Convert row to 1 - 8
+			// );
+			// if (GET_TYPE(last_move) == PROMOTION || GET_TYPE(last_move) == CASTLE)
 			// {
-			// 	is_enpassant = true;
+			// 	printf("%c", GET_PROM(last_move) == KNIGHT ? 'N' : GET_PROM(last_move) == BISHOP ? 'B' : GET_PROM(last_move) == ROOK ? 'R' : 'Q');
 			// }
+			printf("%s", MOVE_TO_STRING(last_move));
 
 			move_counter++;
-			if (move_counter % 2 == 0)
-			{
-				putchar(10);
-			}
-			else
-			{
-				putchar(' ');
-			}
+			putchar(move_counter % 2 == 0  ? 10 : ' ');
+
 			// print_board(board);
 			player = SWITCH_PLAYER(player);
 		}
 		// is_enpassant = true;
-		printf("--------------------------------------\n");
+		run_games = false;
 	}
 
 

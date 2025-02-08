@@ -37,6 +37,8 @@ typedef enum { BLACK, WHITE } Player;
 #define GET_CASTLE_BR1(castle) (((castle) >> 4) & 0x01)
 #define GET_CASTLE_BR2(castle) (((castle) >> 5) & 0x01)
 
+#define INITIAL_CASTLE 0x3F // 0b00111111
+
 #define GET_ROW(square) ((square) >> 3) // square / 8
 #define GET_COL(square) ((square) & 7)  // square % 8
 
@@ -46,6 +48,8 @@ typedef enum { BLACK, WHITE } Player;
 #define IS_BLACK_PIECE(piece) (islower(piece))
 
 #define SWITCH_PLAYER(player) ((player) == WHITE ? BLACK : WHITE)
+
+#define COPY_BOARD(dest, src) memcpy((dest), (src), sizeof(char) * 64)
 
 enum { NORMAL = 0, PROMOTION = 1, CASTLE = 2, EN_PASSANT = 3, };
 enum { KNIGHT = 0, BISHOP = 1, ROOK = 2, QUEEN = 3 };
@@ -153,5 +157,34 @@ bool can_castle(const char board[64], const Player player, Castle* castle);
 
 // In develop
 bool is_check_move(char board[64], Move move);
+bool is_attacked_by_piece(char board[64], const Square square, char piece);
+bool is_capture_move(const char board[64], const Move move);
+void filter_moves(char board[64], Move valid_moves[256], uint8_t *count, bool (*filter)(const char board[64], const Move move));
+
+// Testing
+#define INIT_COPY_BOARD(dest, src) \
+	char dest[64];\
+	COPY_BOARD(dest, src);
+
+#define MOVE_TO_STRING(move) \
+	({ \
+		static char move_str[6]; \
+		int len = snprintf(move_str, sizeof(move_str), "%c%d%c%d", \
+			(GET_COL(GET_FROM(move))) + 'a',  /* Convert starting column to 'a' - 'h' */ \
+			9 - GET_ROW(GET_FROM(move)) - 1,   /* Convert starting row to 1 - 8 */ \
+			(GET_COL(GET_TO(move))) + 'a',    /* Convert ending column to 'a' - 'h' */ \
+			9 - GET_ROW(GET_TO(move)) - 1     /* Convert ending row to 1 - 8 */ \
+		); \
+		if (GET_TYPE(move) == PROMOTION) { \
+			char prom_piece = (GET_PROM(move) == KNIGHT) ? 'N' : \
+				(GET_PROM(move) == BISHOP) ? 'B' : \
+				(GET_PROM(move) == ROOK) ? 'R' : 'Q'; \
+				move_str[len++] = prom_piece; \
+			move_str[len] = '\0'; \
+		} \
+		move_str; \
+	})
+
+
 
 #endif //CHESS_H
