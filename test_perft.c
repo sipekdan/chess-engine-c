@@ -1,3 +1,8 @@
+
+/*
+ * Test cases sourced from: https://www.chessprogramming.org/Perft_Results
+ */
+
 #include <stdio.h>
 
 #include <time.h>

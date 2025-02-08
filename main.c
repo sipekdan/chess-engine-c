@@ -68,7 +68,6 @@ int main(void)
 	}
 
 	// printf("Move: %s\n", MOVE_TO_STRING(CREATE_MOVE(0, 63, NORMAL, 0)));
-
 	// printf("Move: `%s`\n", get_move_notation(CREATE_MOVE(52, 36, NORMAL, 0), board));
 
 	bool run_games = true;
