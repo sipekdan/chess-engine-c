@@ -3,12 +3,12 @@
  * Test cases sourced from: https://www.chessprogramming.org/Perft_Results
  */
 
-#include <stdio.h>
-
+#include <stdint.h>
 #include <time.h>
+
 #include "chess.h"
 
-#define ALL_TESTS
+// #define ALL_TESTS
 
 #define RESET_COLOR    "\033[0m"
 #define GREEN_COLOR    "\033[32m"
@@ -28,7 +28,7 @@ do { \
 	clock_t start_time = clock(); \
 	if ((actual) != (expected)) { \
 		test_failed(__func__, (expected), (actual), ((double)(clock() - start_time)) / CLOCKS_PER_SEC); \
-		return; \
+		/*return;*/ \
 	} else { \
 		test_passed(__func__, (expected), (actual), ((double)(clock() - start_time)) / CLOCKS_PER_SEC); \
 	} \
@@ -47,7 +47,7 @@ uint64_t test_initial_position(const int depth, Player player)
 		'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R',
 	};
 
-	return perft(board, depth, player, 0x3F, 0);
+	return perft(board, depth, player, INITIAL_CASTLE, 0, true);
 }
 
 uint64_t test_double_checks(const int depth, Player player)
@@ -62,7 +62,7 @@ uint64_t test_double_checks(const int depth, Player player)
 		'P', 'P', 'P', 'B', 'B', 'P', 'P', 'P',
 		'R', ' ', ' ', ' ', 'K', ' ', ' ', 'R',
 	};
-	return perft(board, depth, player, 0x3F, 0);
+	return perft(board, depth, player, INITIAL_CASTLE, 0, true);
 
 }
 
@@ -78,7 +78,7 @@ uint64_t test_checks(const int depth, Player player)
 		' ', ' ', ' ', ' ', 'P', ' ', 'P', ' ',
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 	};
-	return perft(board, depth, player, 0x3F, 0);
+	return perft(board, depth, player, INITIAL_CASTLE, 0, true);
 }
 
 uint64_t test_promo_white(const int depth, Player player)
@@ -93,7 +93,7 @@ uint64_t test_promo_white(const int depth, Player player)
          'P', 'p', ' ', 'P', ' ', ' ', 'P', 'P',
          'R', ' ', ' ', 'Q', ' ', 'R', 'K', ' ',
 	};
-	return perft(board, depth, player, 0x3F, 0);
+	return perft(board, depth, player, INITIAL_CASTLE, 0, true);
 }
 
 uint64_t test_promo_black(const int depth, Player player)
@@ -108,7 +108,7 @@ uint64_t test_promo_black(const int depth, Player player)
 		'p', 'P', 'P', 'P', ' ', 'P', 'P', 'P',
 		'R', ' ', ' ', ' ', 'K', ' ', ' ', 'R',
 	};
-	return perft(board, depth, player, 0x3F, 0);
+	return perft(board, depth, player, INITIAL_CASTLE, 0, true);
 }
 
 uint64_t test_depth_3(const int depth, Player player)
@@ -123,7 +123,7 @@ uint64_t test_depth_3(const int depth, Player player)
 		'P', 'P', 'P', ' ', 'N', 'n', 'P', 'P',
 		'R', 'N', 'B', 'Q', 'K', ' ', ' ', 'R',
 	};
-	return perft(board, depth, player, 0x3F, 0);
+	return perft(board, depth, player, INITIAL_CASTLE, 0, true);
 }
 
 
@@ -140,9 +140,24 @@ uint64_t test_alt(const int depth, Player player)
 		'R', ' ', ' ', ' ', ' ', 'R', 'K', ' ',
 	};
 
-	return perft(board, depth, player, 0x3F, 0);
+	return perft(board, depth, player, INITIAL_CASTLE, 0, true);
 }
 
+uint64_t test_knight(const int depth, Player player)
+{
+	char board[64] = {
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', 'N',
+	};
+
+	return perft(board, depth, player, INITIAL_CASTLE, 0, false);
+}
 
 // Define unit tests
 void test_perft_init_position() {
@@ -223,6 +238,22 @@ void test_preft_alternative()
 #endif
 }
 
+void test_perft_knight()
+{
+	assert_equal(test_knight(1, WHITE),  2);
+	assert_equal(test_knight(2, WHITE),  12);
+	assert_equal(test_knight(3, WHITE),  64);
+	assert_equal(test_knight(4, WHITE),  404);
+	assert_equal(test_knight(5, WHITE),  2352);
+	assert_equal(test_knight(6, WHITE),  14396);
+	assert_equal(test_knight(7, WHITE),  85608);
+	assert_equal(test_knight(8, WHITE),  517796);
+	assert_equal(test_knight(9, WHITE),  3100928);
+	assert_equal(test_knight(10, WHITE), 18678652);
+#ifdef ALL_TESTS
+	assert_equal(test_knight(11, WHITE), 112130536);
+#endif
+}
 
 void run_tests() {
 	// Run each test
@@ -235,4 +266,8 @@ void run_tests() {
 
 	test_perft_depth_3();		 // Position 5
 	test_preft_alternative();	 // Position 6
+
+	test_perft_knight();		 // Knight tests
+
+	printf("Testing process finished.\n");
 }

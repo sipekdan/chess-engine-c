@@ -1,7 +1,5 @@
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
 #include "chess.h"
@@ -23,16 +21,12 @@ void print_board(char board[64])
 	printf(" +---------------+\n");
 }
 
-
-
 int main(void)
 {
 	// run_tests();
-	//
 	// return 0;
 
 	srand(time(NULL));
-
 	char board[64] = {
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
@@ -41,8 +35,9 @@ int main(void)
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-		'N', ' ', ' ', ' ', ' ', ' ', ' ', ' '
+		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
 	};
+
 	char init_board[64] = {
 		'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
 		'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
@@ -59,13 +54,6 @@ int main(void)
 		printf("%3d", i);
 	}
 	putchar(10);
-	for (Square square = 0; square < 64; square++)
-	{
-		if (is_attacked_by_piece(board, square, 'N'))
-		{
-			printf("Attacked: %d\n", square);
-		}
-	}
 
 	// printf("Move: %s\n", MOVE_TO_STRING(CREATE_MOVE(0, 63, NORMAL, 0)));
 	// printf("Move: `%s`\n", get_move_notation(CREATE_MOVE(52, 36, NORMAL, 0), board));
@@ -73,8 +61,8 @@ int main(void)
 	bool run_games = true;
 	while (run_games)
 	{
+		COPY_BOARD(board, init_board);
 
-		memcpy(board, init_board, sizeof(char) * 64);
 		Move valid_moves[256];
 		uint8_t count;
 		Castle castle = INITIAL_CASTLE;
@@ -102,6 +90,16 @@ int main(void)
 				last_move = valid_moves[rand() % count];
 			}
 
+			char notation[16] = {0};
+			move_to_PGN(last_move, board, valid_moves, count, notation);
+			if (move_counter % 2 == 0) printf("%d. ", move_counter / 2 + 1);
+
+			printf("%s ", notation);
+
+			// if (move_counter % 2 == 0) printf("\n");
+
+			// printf("`%s`", MOVE_TO_STRING(last_move));
+
 			make_move(board, last_move);
 
 			// printf("%c%d%c%d",
@@ -110,14 +108,14 @@ int main(void)
 			// 	(GET_COL(GET_TO(last_move))) + 'a',     // Convert column to 'a' - 'h'
 			// 	9 - GET_ROW(GET_TO(last_move)) - 1             // Convert row to 1 - 8
 			// );
-			// if (GET_TYPE(last_move) == PROMOTION || GET_TYPE(last_move) == CASTLE)
+			// if (GET_TYPE(last_move) == PROMOTION)
 			// {
 			// 	printf("%c", GET_PROM(last_move) == KNIGHT ? 'N' : GET_PROM(last_move) == BISHOP ? 'B' : GET_PROM(last_move) == ROOK ? 'R' : 'Q');
 			// }
-			printf("%s", MOVE_TO_STRING(last_move));
+			// printf("%s", MOVE_TO_STRING(last_move));
 
 			move_counter++;
-			putchar(move_counter % 2 == 0  ? 10 : ' ');
+			// putchar(move_counter % 2 == 0  ? 10 : ' ');
 
 			// print_board(board);
 			player = SWITCH_PLAYER(player);
