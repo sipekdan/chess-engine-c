@@ -10,11 +10,11 @@ extern "C" {
 #endif
 
 #ifndef CHESSDEF
-	#ifdef CHESS_STATIC
-		#define CHESSDEF static
-	#else
-		#define CHESSDEF extern
-	#endif
+#ifdef CHESS_STATIC
+#define CHESSDEF static
+#else
+#define CHESSDEF extern
+#endif
 #endif
 
 #include <stdio.h>

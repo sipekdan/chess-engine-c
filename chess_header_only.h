@@ -5,35 +5,41 @@
 #ifndef CHESS_H
 #define CHESS_H
 
-#define CHESS_IMPLEMENTATION
-
-#include <stdbool.h>
-//#include <ctype.h>
-#include <stdint.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #ifndef CHESSDEF
-	#ifdef CHESS_STATIC
-		#define CHESSDEF static
-	#else
-		#define CHESSDEF extern
-	#endif
+#ifdef CHESS_STATIC
+#define CHESSDEF static
+#else
+#define CHESSDEF extern
+#endif
 #endif
 
+#include <stdio.h>
+#include <stdbool.h>
+
 typedef unsigned short Move;
-typedef unsigned char  Square;
-typedef unsigned char  Castle;
+typedef unsigned char Square;
+typedef unsigned char Castle;
 typedef enum { BLACK, WHITE } Player;
+
+/*
+ * from square:  6 bits (2^6 = 64)
+ * to square:    6 bits (2^6 = 64)
+ * move type:    2 bits (2^2 =  4) 0 -> normal, 1 -> promotion, 2 -> castle, 3 -> en-passant
+ * promo. piece: 2 bits (2^2 =  4) 0 -> knight, 1 -> bishop,    2 -> rook,   3 -> queen
+ */
+
+#define ABS(x) ((x) < 0 ? -(x) : (x))
 
 #define CREATE_MOVE(from, to, type, promotion) (((from) << 10) | ((to) << 4) | ((type) << 2) | (promotion))
 
 #define GET_FROM(move) (((move) >> 10) & 0x3F)
 #define GET_TO(move)   (((move) >> 4)  & 0x3f)
-#define GET_TYPE(move) (((move) >> 2)  & 0x3)
-#define GET_PROM(move) (((move) >> 0)  & 0x3)
+#define GET_TYPE(move) (((move) >> 2)  & 0x3) // 0 - normal, 1 - promotion, 2 - castle, 3 - en-passant
+#define GET_PROM(move) (((move) >> 0)  & 0x3) // 0 - knight, 1 - bishop, 2 - rook, 3 - queen
 
 #define GET_CASTLE_WK(castle)  (((castle) >> 0) & 0x01)
 #define GET_CASTLE_WR1(castle) (((castle) >> 1) & 0x01)
@@ -49,12 +55,39 @@ typedef enum { BLACK, WHITE } Player;
 
 #define IS_VALID_SQUARE(square) ((square >= 0) && (square < 64))
 
-#define IS_WHITE_PIECE(piece) (isupper(piece))
-#define IS_BLACK_PIECE(piece) (islower(piece))
+#define IS_WHITE_PIECE(piece) ((piece) >= 'A' && (piece) <= 'Z') // (isupper(piece))
+#define IS_BLACK_PIECE(piece) ((piece) >= 'a' && (piece) <= 'z') // (islower(piece))
 
 #define SWITCH_PLAYER(player) ((player) == WHITE ? BLACK : WHITE)
 
-#define COPY_BOARD(dest, src) memcpy((dest), (src), sizeof(char) * 64)
+#define COPY_BOARD(dest, src) \
+	for (int i = 0; i < 64; ++i) { \
+		(dest)[i] = (src)[i]; \
+	}
+
+// Testing
+#define INIT_COPY_BOARD(dest, src) \
+	char (dest)[64];\
+	COPY_BOARD(dest, src);
+
+#define MOVE_TO_STRING(move) \
+	({ \
+		static char move_str[6]; \
+		int len = snprintf(move_str, sizeof(move_str), "%c%d%c%d", \
+			(GET_COL(GET_FROM(move))) + 'a',  /* Convert starting column to 'a' - 'h' */ \
+			8 - GET_ROW(GET_FROM(move)),   /* Convert starting row to 1 - 8 */ \
+			(GET_COL(GET_TO(move))) + 'a',    /* Convert ending column to 'a' - 'h' */ \
+			8 - GET_ROW(GET_TO(move))     /* Convert ending row to 1 - 8 */ \
+		); \
+		if (GET_TYPE(move) == PROMOTION) { \
+			char prom_piece = (GET_PROM(move) == KNIGHT) ? 'N' : \
+			(GET_PROM(move) == BISHOP) ? 'B' : \
+			(GET_PROM(move) == ROOK) ? 'R' : 'Q'; \
+			move_str[len++] = prom_piece; \
+			move_str[len] = '\0'; \
+		} \
+		move_str; \
+	})
 
 enum { NORMAL = 0, PROMOTION = 1, CASTLE = 2, EN_PASSANT = 3, };
 enum { KNIGHT = 0, BISHOP = 1, ROOK = 2, QUEEN = 3 };
@@ -66,7 +99,6 @@ CHESSDEF bool is_in_check(const char board[64], const Player player);
 CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_move);
 CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_move);
 CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], unsigned char* count, const Player player, const unsigned char castle, const Move last_move);
-CHESSDEF void add_move(char board[64], Move valid_moves[256], const Move move, unsigned char* count, const Player player);
 CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player);
 CHESSDEF unsigned long long perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player);
 
@@ -82,40 +114,26 @@ CHESSDEF bool can_castle(const char board[64], const Player player, Castle* cast
 CHESSDEF bool is_check_move(char board[64], Move move);
 CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char piece);
 CHESSDEF bool is_capture_move(const char board[64], const Move move);
-CHESSDEF void filter_moves(char board[64], Move valid_moves[256], uint8_t *count, bool (*filter)(const char board[64], const Move move));
+CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char *count, bool (*filter)(const char board[64], const Move move));
 
-// Testing
-#define INIT_COPY_BOARD(dest, src) \
-	char dest[64];\
-	COPY_BOARD(dest, src);
+CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsigned char count, char *dest);
 
-#define MOVE_TO_STRING(move) \
-	({ \
-		static char move_str[6]; \
-		int len = snprintf(move_str, sizeof(move_str), "%c%d%c%d", \
-			(GET_COL(GET_FROM(move))) + 'a',  /* Convert starting column to 'a' - 'h' */ \
-			8 - GET_ROW(GET_FROM(move)),   /* Convert starting row to 1 - 8 */ \
-			(GET_COL(GET_TO(move))) + 'a',    /* Convert ending column to 'a' - 'h' */ \
-			8 - GET_ROW(GET_TO(move))     /* Convert ending row to 1 - 8 */ \
-		); \
-		if (GET_TYPE(move) == PROMOTION) { \
-			char prom_piece = (GET_PROM(move) == KNIGHT) ? 'N' : \
-				(GET_PROM(move) == BISHOP) ? 'B' : \
-				(GET_PROM(move) == ROOK) ? 'R' : 'Q'; \
-				move_str[len++] = prom_piece; \
-			move_str[len] = '\0'; \
-		} \
-		move_str; \
-	})
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef CHESS_IMPLEMENTATION
+
+//
+// Created by Daniel on 2/1/2025.
+//
+
+#include "chess.h"
+
 CHESSDEF void make_move(char board[64], const Move move)
 {
-	const uint8_t from = GET_FROM(move);
-	const uint8_t to = GET_TO(move);
+	const unsigned char from = GET_FROM(move);
+	const unsigned char to = GET_TO(move);
 	const char piece = board[from];
 
 	switch (GET_TYPE(move))
@@ -175,8 +193,8 @@ CHESSDEF void make_move(char board[64], const Move move)
 
 CHESSDEF void undo_move(char board[64], const Move move, const char captured_piece)
 {
-	const uint8_t from = GET_FROM(move);
-	const uint8_t to = GET_TO(move);
+	const unsigned char from = GET_FROM(move);
+	const unsigned char to = GET_TO(move);
 	const char moved_piece = board[to];
 
 	switch (GET_TYPE(move))
@@ -221,6 +239,7 @@ CHESSDEF void undo_move(char board[64], const Move move, const char captured_pie
 		break;
 	}
 }
+
 CHESSDEF void update_castle(const char board[64], Castle* castle)
 {
 	// Check Black Rooks
@@ -237,6 +256,7 @@ CHESSDEF void update_castle(const char board[64], Castle* castle)
 	// Check White King
 	if (board[60] != 'K') { *castle &= ~(1 << 0); } // Bit 0 (White King)
 }
+
 CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player)
 {
 	if (!IS_VALID_SQUARE(square))
@@ -257,22 +277,22 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 	const char king   = (player == WHITE) ? 'K' : 'k';
 
 	if ((IS_VALID_SQUARE(square + (player == BLACK ? -7 : 7)) &&
-			abs(GET_COL(square) - GET_COL(square + (player == BLACK ? -7 : 7))) == 1 &&
+			ABS(GET_COL(square) - GET_COL(square + (player == BLACK ? -7 : 7))) == 1 &&
 			board[square + (player == BLACK ? -7 : 7)] == pawn) ||
 		(IS_VALID_SQUARE(square + (player == BLACK ? -9 : 9)) &&
-			abs(GET_COL(square) - GET_COL(square + (player == BLACK ? -9 : 9))) == 1 &&
+			ABS(GET_COL(square) - GET_COL(square + (player == BLACK ? -9 : 9))) == 1 &&
 			board[square + (player == BLACK ? -9 : 9)] == pawn))
 	{
 		return true;
 	}
 
-	const int8_t knight_moves[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
-	for (uint8_t i = 0; i < 8; i++)
+	const char knight_moves[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
+	for (unsigned char i = 0; i < 8; i++)
 	{
 		const Square target_square = square + knight_moves[i];
 		if (IS_VALID_SQUARE(target_square) &&
-			abs(GET_COL(target_square) - GET_COL(square)) <= 2 &&
-			abs(GET_ROW(target_square) - GET_ROW(square)) <= 2 &&
+			ABS(GET_COL(target_square) - GET_COL(square)) <= 2 &&
+			ABS(GET_ROW(target_square) - GET_ROW(square)) <= 2 &&
 			board[target_square] == knight)
 		{
 			return true;
@@ -280,17 +300,17 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 	}
 
 
-	const int8_t directions[8] = {1, -1, 8, -8, 9, 7, -9, -7};
-	for (uint8_t d = 0; d < 8; ++d)
+	const char directions[8] = {1, -1, 8, -8, 9, 7, -9, -7};
+	for (unsigned char d = 0; d < 8; ++d)
 	{
-		for (uint8_t k = 1; k < 8; ++k)
+		for (unsigned char k = 1; k < 8; ++k)
 		{
 			const Square target_square = square + directions[d] * k;
 
 			if (!IS_VALID_SQUARE(target_square)) break;
 
-			const uint8_t row = GET_ROW(target_square);
-			const uint8_t col = GET_COL(target_square);
+			const unsigned char row = GET_ROW(target_square);
+			const unsigned char col = GET_COL(target_square);
 
 			// Boundary checks for each direction
 			if ((directions[d] == 1 && col == 0) || // Right edge, wrap around
@@ -321,6 +341,7 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 	}
 	return false;
 }
+
 CHESSDEF bool is_in_check(const char board[64], const Player player)
 {
 	const char king = player == WHITE ? 'K' : 'k';
@@ -331,12 +352,13 @@ CHESSDEF bool is_in_check(const char board[64], const Player player)
 	}
 	return false;
 }
+
 CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_move)
 {
 	if (is_in_check(board, player))
 	{
 		Move valid_moves[256];
-		uint8_t count;
+		unsigned char count;
 
 		// Needs to use last move for en-passant (case where en-passant will save you from checkmate)
 		// https://chess.stackexchange.com/questions/22006/en-passant-checkmate#:~:text=The%20answer%20in%20both%20cases%20is%20no%2C%20since,probably%20win%20the%20game%20via%20the%20clock%20%3A%29
@@ -348,12 +370,13 @@ CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_
 	}
 	return false;
 }
+
 CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_move)
 {
 	if (!is_in_check(board, player))
 	{
 		Move valid_moves[256];
-		uint8_t count;
+		unsigned char count;
 
 		// Needs to use last move for en-passant (case where en-passant is the only left move)
 		// Castle is not needed because if the player's only move is castle, then he could move the rook also, so it won't be a stalemate
@@ -365,15 +388,16 @@ CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_
 	}
 	return false;
 }
+
 CHESSDEF bool can_en_passant(const char board[64], const Player player, const Move last_move)
 {
 	for (Square square = 24; square < 40; square++)
 	{
 		if ((player == WHITE && board[square] == 'P') || (player == BLACK && board[square] == 'B'))
 		{
-			if (abs(GET_FROM(last_move) - GET_TO(last_move)) == 16 && board[GET_TO(last_move)] == (player == WHITE ? 'p' : 'P'))
+			if (ABS(GET_FROM(last_move) - GET_TO(last_move)) == 16 && board[GET_TO(last_move)] == (player == WHITE ? 'p' : 'P'))
 			{
-				if (GET_ROW(square) == (player == WHITE ? 3 : 4) && abs(GET_COL(square) - GET_COL(GET_TO(last_move))) == 1)
+				if (GET_ROW(square) == (player == WHITE ? 3 : 4) && ABS(GET_COL(square) - GET_COL(GET_TO(last_move))) == 1)
 				{
 					return true;
 				}
@@ -382,13 +406,15 @@ CHESSDEF bool can_en_passant(const char board[64], const Player player, const Mo
 	}
 	return false;
 }
+
 CHESSDEF bool can_castle(const char board[64], const Player player, Castle* castle)
 {
 	update_castle(board, castle);
 	return player == WHITE ? GET_CASTLE_WK(*castle) && (GET_CASTLE_WR1(*castle) || GET_CASTLE_WR2(*castle))
 						   : GET_CASTLE_BK(*castle) && (GET_CASTLE_BR1(*castle) || GET_CASTLE_BR2(*castle));
 }
-CHESSDEF void add_move(char board[64], Move valid_moves[256], const Move move, uint8_t* count, const Player player)
+
+static void add_move(char board[64], Move valid_moves[256], const Move move, unsigned char* count, const Player player)
 {
 	const char captured_piece = board[GET_TO(move)];
 	make_move(board, move);
@@ -400,11 +426,9 @@ CHESSDEF void add_move(char board[64], Move valid_moves[256], const Move move, u
 
 	undo_move(board, move, captured_piece);
 }
-
-CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_t* count, const Player player, const uint8_t castle, const uint16_t last_move)
+CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], unsigned char* count, const Player player, Castle castle, const Move last_move)
 {
 	*count = 0;
-
 	for (Square square = 0; square < 64; ++square)
 	{
 		const char piece = board[square];
@@ -416,7 +440,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 			case 'p':
 			case 'P':
 				{
-					const int8_t direction = piece == 'P' ? -8 : 8;
+					const char direction = piece == 'P' ? -8 : 8;
 					const Square target_square = square + direction;
 
 					// Move forward
@@ -425,7 +449,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 						if ((piece == 'P' && GET_ROW(target_square) == 0) || (piece == 'p' && GET_ROW(target_square) ==
 							7))
 						{
-							for (uint8_t promotion_piece = 0; promotion_piece < 4; ++promotion_piece)
+							for (unsigned char promotion_piece = 0; promotion_piece < 4; ++promotion_piece)
 							{
 								add_move(board, valid_moves, CREATE_MOVE(square, target_square, PROMOTION, promotion_piece), count, player);
 							}
@@ -448,19 +472,19 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 					}
 
 					// Captures
-					for (uint8_t i = 0; i < 2; i++)
+					for (unsigned char i = 0; i < 2; i++)
 					{
 						const Square capture_square = square + (i == 0 ? direction - 1 : direction + 1);
 
 						if (IS_VALID_SQUARE(capture_square) &&
-							abs(GET_COL(capture_square) - GET_COL(square)) == 1 &&
+							ABS(GET_COL(capture_square) - GET_COL(square)) == 1 &&
 							((player == WHITE && IS_BLACK_PIECE(board[capture_square])) ||
 								(player == BLACK && IS_WHITE_PIECE(board[capture_square]))))
 						{
 							if ((piece == 'P' && GET_ROW(capture_square) == 0) || (piece == 'p' && GET_ROW(
 								capture_square) == 7))
 							{
-								for (uint8_t promotion_piece = 0; promotion_piece < 4; ++promotion_piece)
+								for (unsigned char promotion_piece = 0; promotion_piece < 4; ++promotion_piece)
 								{
 									add_move(board, valid_moves, CREATE_MOVE(square, capture_square, PROMOTION, promotion_piece), count, player);
 								}
@@ -477,10 +501,10 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 					// En passant
 					if (last_move != 0)
 					{
-						if (abs(GET_FROM(last_move) - GET_TO(last_move)) == 16 && board[GET_TO(last_move)] == (
+						if (ABS(GET_FROM(last_move) - GET_TO(last_move)) == 16 && board[GET_TO(last_move)] == (
 							player == WHITE ? 'p' : 'P'))
 						{
-							if (GET_ROW(square) == (player == WHITE ? 3 : 4) && abs(
+							if (GET_ROW(square) == (player == WHITE ? 3 : 4) && ABS(
 								GET_COL(square) - GET_COL(GET_TO(last_move))) == 1)
 							{
 								add_move(board, valid_moves,
@@ -495,13 +519,13 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 			case 'n':
 			case 'N':
 				{
-					const int8_t knight_moves[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
-					for (uint8_t i = 0; i < 8; i++)
+					const char knight_moves[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
+					for (unsigned char i = 0; i < 8; i++)
 					{
 						const Square target_square = square + knight_moves[i];
 						if (IS_VALID_SQUARE(target_square) &&
-							abs(GET_COL(target_square) - GET_COL(square)) <= 2 &&
-							abs(GET_ROW(target_square) - GET_ROW(square)) <= 2 &&
+							ABS(GET_COL(target_square) - GET_COL(square)) <= 2 &&
+							ABS(GET_ROW(target_square) - GET_ROW(square)) <= 2 &&
 							(board[target_square] == ' ' || (IS_BLACK_PIECE(board[target_square]) && player == WHITE) ||
 								(IS_WHITE_PIECE(board[target_square]) && player == BLACK)))
 						{
@@ -514,16 +538,16 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 			case 'b':
 			case 'B':
 				{
-					const int8_t bishop_moves[4] = {-9, -7, 7, 9};
-					for (uint8_t i = 0; i < 4; i++)
+					const char bishop_moves[4] = {-9, -7, 7, 9};
+					for (unsigned char i = 0; i < 4; i++)
 					{
-						for (uint8_t step = 1; step < 8; step++)
+						for (unsigned char step = 1; step < 8; step++)
 						{
 							const Square target_square = square + bishop_moves[i] * step;
 							if (!IS_VALID_SQUARE(target_square)) break;
 
 							// Ensure new_pos is on the same diagonal
-							if (abs(GET_COL(target_square) - GET_COL(square)) != abs(
+							if (ABS(GET_COL(target_square) - GET_COL(square)) != ABS(
 								GET_ROW(target_square) - GET_ROW(square)))
 								break;
 
@@ -532,7 +556,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 								add_move(board, valid_moves, CREATE_MOVE(square, target_square, NORMAL, 0), count,
 								         player);
 							}
-							else if ((player == WHITE && islower(board[target_square])) || (player == BLACK && isupper(
+							else if ((player == WHITE && IS_BLACK_PIECE(board[target_square])) || (player == BLACK && IS_WHITE_PIECE(
 								board[target_square])))
 							{
 								add_move(board, valid_moves, CREATE_MOVE(square, target_square, NORMAL, 0), count,
@@ -551,11 +575,11 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 			case 'r':
 			case 'R':
 				{
-					const int8_t rook_moves[4] = {-8, 8, -1, 1}; // Up, Down, Left, Right
+					const char rook_moves[4] = {-8, 8, -1, 1}; // Up, Down, Left, Right
 
-					for (uint8_t i = 0; i < 4; i++)
+					for (unsigned char i = 0; i < 4; i++)
 					{
-						for (uint8_t step = 1; step < 8; step++)
+						for (unsigned char step = 1; step < 8; step++)
 						{
 							const Square target_square = square + rook_moves[i] * step;
 
@@ -570,8 +594,8 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 								add_move(board, valid_moves, CREATE_MOVE(square, target_square, NORMAL, 0), count,
 								         player);
 							}
-							else if ((player == WHITE && islower(board[target_square])) ||
-								(player == BLACK && isupper(board[target_square])))
+							else if ((player == WHITE && IS_BLACK_PIECE(board[target_square])) ||
+								(player == BLACK && IS_WHITE_PIECE(board[target_square])))
 							{
 								add_move(board, valid_moves, CREATE_MOVE(square, target_square, NORMAL, 0), count,
 								         player);
@@ -589,11 +613,11 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 			case 'q':
 			case 'Q':
 				{
-					const int8_t queen_moves[8] = {-8, 8, -1, 1, -9, -7, 7, 9};
+					const char queen_moves[8] = {-8, 8, -1, 1, -9, -7, 7, 9};
 
-					for (uint8_t i = 0; i < 8; i++)
+					for (unsigned char i = 0; i < 8; i++)
 					{
-						for (uint8_t step = 1; step < 8; step++)
+						for (unsigned char step = 1; step < 8; step++)
 						{
 							const Square target_square = square + queen_moves[i] * step;
 
@@ -608,7 +632,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 							// Ensure diagonal moves stay on the same diagonal
 							if ((queen_moves[i] == -9 || queen_moves[i] == -7 || queen_moves[i] == 7 || queen_moves[i]
 									== 9) &&
-								abs(GET_COL(target_square) - GET_COL(square)) != abs(
+								ABS(GET_COL(target_square) - GET_COL(square)) != ABS(
 									GET_ROW(target_square) - GET_ROW(square)))
 								break;
 
@@ -617,8 +641,8 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 								add_move(board, valid_moves, CREATE_MOVE(square, target_square, NORMAL, 0), count,
 								         player);
 							}
-							else if ((player == WHITE && islower(board[target_square])) ||
-								(player == BLACK && isupper(board[target_square])))
+							else if ((player == WHITE && IS_BLACK_PIECE(board[target_square])) ||
+								(player == BLACK && IS_WHITE_PIECE(board[target_square])))
 							{
 								add_move(board, valid_moves, CREATE_MOVE(square, target_square, NORMAL, 0), count,
 								         player);
@@ -636,11 +660,11 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 			case 'k':
 			case 'K':
 				{
-					const int8_t king_moves[8] = {-1, 1, -8, 8, -9, -7, 7, 9};
-					for (uint8_t i = 0; i < 8; i++)
+					const char king_moves[8] = {-1, 1, -8, 8, -9, -7, 7, 9};
+					for (unsigned char i = 0; i < 8; i++)
 					{
 						const Square target_square = square + king_moves[i];
-						if (IS_VALID_SQUARE(target_square) && abs(GET_COL(target_square) - GET_COL(square)) <= 1)
+						if (IS_VALID_SQUARE(target_square) && ABS(GET_COL(target_square) - GET_COL(square)) <= 1)
 						{
 							if (board[target_square] == ' ' ||
 								(IS_BLACK_PIECE(board[target_square]) && player == WHITE) ||
@@ -699,13 +723,14 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], uint8_
 	}
 }
 
-CHESSDEF uint64_t perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player)
+
+CHESSDEF unsigned long long perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player)
 {
 	if (depth == 0) return 1;
 
 	Move valid_moves[256];
-	uint8_t move_count = 0;
-	uint64_t total_moves = 0;
+	unsigned char move_count = 0;
+	unsigned long long total_moves = 0;
 
 	Castle new_castle = castle;
 
@@ -715,11 +740,11 @@ CHESSDEF uint64_t perft(char board[64], const int depth, const Player player, co
 	for (int i = 0; i < move_count; i++)
 	{
 		char new_board[64] = {0};
-		memcpy(new_board, board, sizeof(char) * 64);
+		COPY_BOARD(new_board, board);
 
 		make_move(new_board, valid_moves[i]);
 
-		const uint64_t level_total = perft(new_board, depth - 1, switch_player ? SWITCH_PLAYER(player) : player, new_castle, valid_moves[i], switch_player);
+		const unsigned long long level_total = perft(new_board, depth - 1, switch_player ? SWITCH_PLAYER(player) : player, new_castle, valid_moves[i], switch_player);
 
 		total_moves += level_total;
 	}
@@ -738,12 +763,12 @@ CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char pie
 	{
 	case 'p':
 	case 'P':
-		if ((IS_VALID_SQUARE(square + (islower(piece) ? -7 : 7)) &&
-				abs(GET_COL(square) - GET_COL(square + (islower(piece) ? -7 : 7))) == 1 &&
-				board[square + (islower(piece) ? -7 : 7)] == piece) ||
-			(IS_VALID_SQUARE(square + (islower(piece) ? -9 : 9)) &&
-				abs(GET_COL(square) - GET_COL(square + (islower(piece) ? -9 : 9))) == 1 &&
-				board[square + (islower(piece) ? -9 : 9)] == piece))
+		if ((IS_VALID_SQUARE(square + (IS_BLACK_PIECE(piece) ? -7 : 7)) &&
+				ABS(GET_COL(square) - GET_COL(square + (IS_BLACK_PIECE(piece) ? -7 : 7))) == 1 &&
+				board[square + (IS_BLACK_PIECE(piece) ? -7 : 7)] == piece) ||
+			(IS_VALID_SQUARE(square + (IS_BLACK_PIECE(piece) ? -9 : 9)) &&
+				ABS(GET_COL(square) - GET_COL(square + (IS_BLACK_PIECE(piece) ? -9 : 9))) == 1 &&
+				board[square + (IS_BLACK_PIECE(piece) ? -9 : 9)] == piece))
 		{
 			return true;
 		}
@@ -751,13 +776,13 @@ CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char pie
 
 	case 'n':
 	case 'N':
-		const int8_t knight_moves[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
-		for (uint8_t i = 0; i < 8; i++)
+		const char knight_moves[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
+		for (unsigned char i = 0; i < 8; i++)
 		{
 			const Square target_square = square + knight_moves[i];
 			if (IS_VALID_SQUARE(target_square) &&
-				abs(GET_COL(target_square) - GET_COL(square)) <= 2 &&
-				abs(GET_ROW(target_square) - GET_ROW(square)) <= 2 &&
+				ABS(GET_COL(target_square) - GET_COL(square)) <= 2 &&
+				ABS(GET_ROW(target_square) - GET_ROW(square)) <= 2 &&
 				board[target_square] == piece)
 			{
 				return true;
@@ -768,16 +793,16 @@ CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char pie
 
 	case 'b':
 	case 'B':
-		const int8_t bishop_directions[4] = {9, -9, 7, -7};
-		for (uint8_t i = 0; i < 4; ++i)
+		const char bishop_directions[4] = {9, -9, 7, -7};
+		for (unsigned char i = 0; i < 4; ++i)
 		{
-			for (uint8_t k = 1; k < 8; ++k)
+			for (unsigned char k = 1; k < 8; ++k)
 			{
 				const Square target_square = square + bishop_directions[i] * k;
 				if (!IS_VALID_SQUARE(target_square)) break;
 
-				const uint8_t row = GET_ROW(target_square);
-				const uint8_t col = GET_COL(target_square);
+				const unsigned char row = GET_ROW(target_square);
+				const unsigned char col = GET_COL(target_square);
 
 				// Check boundaries for bishop moves
 				if ((bishop_directions[i] == 9 && (col == 0 || row == 0)) ||
@@ -803,16 +828,16 @@ CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char pie
 
 	case 'r':
 	case 'R':
-		const int8_t rook_directions[4] = {1, -1, 8, -8};
-		for (uint8_t i = 0; i < 4; ++i)
+		const char rook_directions[4] = {1, -1, 8, -8};
+		for (unsigned char i = 0; i < 4; ++i)
 		{
-			for (uint8_t k = 1; k < 8; ++k)
+			for (unsigned char k = 1; k < 8; ++k)
 			{
 				const Square target_square = square + rook_directions[i] * k;
 				if (!IS_VALID_SQUARE(target_square)) break;
 
-				const uint8_t row = GET_ROW(target_square);
-				const uint8_t col = GET_COL(target_square);
+				const unsigned char row = GET_ROW(target_square);
+				const unsigned char col = GET_COL(target_square);
 
 				// Boundary checks for rook moves
 				if ((rook_directions[i] == 1 && col == 0) ||
@@ -844,13 +869,13 @@ CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char pie
 
 	case 'k':
 	case 'K':
-		const int8_t king_moves[8] = {-9, -8, -7, -1, 1, 7, 8, 9};
-		for (uint8_t i = 0; i < 8; i++)
+		const char king_moves[8] = {-9, -8, -7, -1, 1, 7, 8, 9};
+		for (unsigned char i = 0; i < 8; i++)
 		{
 			const Square target_square = square + king_moves[i];
 
 			if (!IS_VALID_SQUARE(target_square) ||
-				(abs(GET_COL(square) - GET_COL(target_square)) > 1 || abs(GET_ROW(square) - GET_ROW(target_square)) > 1))
+				(ABS(GET_COL(square) - GET_COL(target_square)) > 1 || ABS(GET_ROW(square) - GET_ROW(target_square)) > 1))
 			{
 				continue;
 			}
@@ -870,6 +895,7 @@ CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char pie
 	return false;
 }
 
+
 CHESSDEF bool is_check_move(char board[64], Move move)
 {
 	char temp_board[64];
@@ -884,10 +910,10 @@ CHESSDEF bool is_capture_move(const char board[64], const Move move)
 	return board[GET_TO(move)] != ' ' || GET_TYPE(move) == EN_PASSANT;
 }
 
-CHESSDEF void filter_moves(char board[64], Move valid_moves[256], uint8_t *count, bool (*filter)(const char board[64], const Move move))
+CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char *count, bool (*filter)(const char board[64], const Move move))
 {
-	uint8_t write_index = 0;
-	for (uint8_t read_index = 0; read_index < *count; read_index++)
+	unsigned char write_index = 0;
+	for (unsigned char read_index = 0; read_index < *count; read_index++)
 	{
 		if (filter(board, valid_moves[read_index]))
 		{
@@ -897,65 +923,94 @@ CHESSDEF void filter_moves(char board[64], Move valid_moves[256], uint8_t *count
 	*count = write_index;
 }
 
-CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], uint8_t count, char *dest)
+#include <ctype.h>
+#include <string.h>
+
+/*
+ * Use https://lichess.org/analysis for test, paste it to the PGN input
+ */
+CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsigned char count, char *dest)
 {
-	char *notation = &dest[0];
-	size_t notation_length = 0;
+    char *notation = &dest[0];
+    size_t notation_length = 0;
 
-	char piece = board[GET_FROM(move)];
+    char piece = board[GET_FROM(move)];
 
-	if (GET_TYPE(move) == CASTLE)
-	{
-		// TODO: Castle
-		return;
-	}
+    if (GET_TYPE(move) == CASTLE)
+    {
+        if (GET_TO(move) == 62 || GET_TO(move) == 6) {
+            strcpy(dest, "O-O");
+        } else if (GET_TO(move) == 58 || GET_TO(move) == 2) {
+            strcpy(dest, "O-O-O");
+        }
+        return;
+    }
 
-	if (piece != 'p' && piece != 'P')
-	{
-		notation[notation_length++] = (char) toupper(piece);
-	}
+    if (piece != 'p' && piece != 'P')
+    {
+        notation[notation_length++] = (char)(toupper(piece));
+    }
 
-	// 2 or more piece on same square move
-	bool needs_file = false, needs_rank = false;
-	for (uint8_t i = 0; i < count; i++) {
-		const Move temp_move = valid_moves[i];
-		if (i != GET_FROM(temp_move) && board[GET_FROM(temp_move)] == piece) {
-			if (GET_ROW(move) == GET_ROW(temp_move))
-			{
-				needs_rank = true;
-			} else if (GET_COL(move) == GET_COL(temp_move))
-			{
-				needs_file = true;
-			}
-		}
-	}
+    // Disambiguation: Check if another piece of the same type can move to the same square
+    bool needs_file = false, needs_rank = false;
+    for (unsigned char i = 0; i < count; i++) {
+        Move temp_move = valid_moves[i];
 
-	if (needs_file) notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';
-	if (needs_rank) notation[notation_length++] = '1' + GET_ROW(GET_FROM(move));
+        if (move == temp_move) continue;  // Skip self
+        if (GET_TO(temp_move) == GET_TO(move) && board[GET_FROM(temp_move)] == piece)
+        {
+            if (GET_ROW(GET_FROM(move)) == GET_ROW(GET_FROM(temp_move)))
+            {
+                needs_file = true;
+            }
+            if (GET_COL(GET_FROM(move)) == GET_COL(GET_FROM(temp_move)))
+            {
+                needs_rank = true;
+            }
+        }
+    }
 
-	// Capture
-	if (board[GET_TO(move)] != ' ')
-	{
-		notation[notation_length++] = 'x';
-	}
+    // if (needs_file) notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a' - 1;
+    // if (needs_rank) notation[notation_length++] = '1' + GET_ROW(GET_FROM(move));
 
-	// Destination
-	notation[notation_length++] = GET_COL(GET_TO(move)) + 'a';
-	notation[notation_length++] = (char)(9 - GET_ROW(GET_TO(move)) - 1);
+	notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';
+	notation[notation_length++] = '0' + 8 - GET_ROW(GET_FROM(move));
 
-	if (GET_TYPE(move) == PROMOTION)
-	{
-		// TODO: promotion
-	}
+	// Capture Handling
+    // if (board[GET_TO(move)] != ' ' || GET_TYPE(move) == EN_PASSANT)
+    // {
+    //     if (piece == 'p' || piece == 'P')
+    //     {
+    //         notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';  // Pawn capture includes file
+    //     }
+    //     notation[notation_length++] = 'x';
+    // }
 
-	if (is_check_move(board, move))
-	{
-		notation[notation_length++] = '+';
-	}
+    // Destination Square
+    notation[notation_length++] = GET_COL(GET_TO(move)) + 'a';
+    notation[notation_length++] = '0' + 8 - GET_ROW(GET_TO(move));
 
+    // Promotion Handling
+    if (GET_TYPE(move) == PROMOTION)
+    {
+        notation[notation_length++] = '=';
+    	char promoted_piece;
+    	switch (GET_PROM(move)) {
+    		case KNIGHT: promoted_piece = 'N'; break;
+    		case BISHOP: promoted_piece = 'B'; break;
+    		case ROOK:   promoted_piece = 'R'; break;
+    		case QUEEN:  promoted_piece = 'Q'; break;
+    		default:     promoted_piece = '\0'; // Shouldn't happen
+    	}
 
-	notation[notation_length] = '\0';
+    	if (promoted_piece) {
+    		notation[notation_length++] = promoted_piece;
+    	}
+    }
+
+    notation[notation_length] = '\0';
 }
-#endif /* CHESS_IMPLEMENTATION */
+
+#endif
 
 #endif //CHESS_H

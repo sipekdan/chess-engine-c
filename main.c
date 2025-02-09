@@ -3,6 +3,8 @@
 #include <time.h>
 
 #include "chess.h"
+// #define CHESS_IMPLEMENTATION
+// #include "chess_header_only.h"
 
 void print_board(char board[64])
 {
@@ -23,8 +25,8 @@ void print_board(char board[64])
 
 int main(void)
 {
-	// run_tests();
-	// return 0;
+	run_tests();
+	return 0;
 
 	srand(time(NULL));
 	char board[64] = {

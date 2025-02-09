@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <time.h>
 
+// #include "chess_header_only.h"
 #include "chess.h"
-
 // #define ALL_TESTS
 
 #define RESET_COLOR    "\033[0m"
