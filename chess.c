@@ -854,7 +854,6 @@ CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char 
 #include <ctype.h>
 #include <string.h>
 
-
 /*
  * Use https://lichess.org/analysis for test, paste it to the PGN input
  */

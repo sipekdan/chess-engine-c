@@ -2,26 +2,12 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "chess.h"
-// #define CHESS_IMPLEMENTATION
-// #include "chess_header_only.h"
+// #include "chess.h"
 
-void print_board(char board[64])
-{
-	printf("  a b c d e f g h\n");
-	printf(" +---------------+\n");
+#define CHESS_IMPLEMENTATION
+#include "chess_header_only.h"
 
-	for (int row = 0; row < 8; row++) {
-		printf("%d|", 9 - (row + 1));
-		for (int col = 0; col < 8; col++) {
-			printf("%c", board[row * 8 + col]);
-			if (col != 7) printf(" ");
-		}
-		printf("|\n");
-	}
-
-	printf(" +---------------+\n");
-}
+extern void run_tests();
 
 int main(void)
 {

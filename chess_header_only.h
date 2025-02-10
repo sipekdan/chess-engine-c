@@ -11,9 +11,13 @@ extern "C" {
 
 #ifndef CHESSDEF
 #ifdef CHESS_STATIC
-#define CHESSDEF static
+	#if defined(__cplusplus)
+		#define CHESSDEF inline
+	#else
+		#define CHESSDEF static
+	#endif
 #else
-#define CHESSDEF extern
+	#define CHESSDEF extern
 #endif
 #endif
 
@@ -23,7 +27,7 @@ extern "C" {
 typedef unsigned short Move;
 typedef unsigned char Square;
 typedef unsigned char Castle;
-typedef enum { BLACK, WHITE } Player;
+typedef enum { BLACK, WHITE, BOTH } Player;
 
 /*
  * from square:  6 bits (2^6 = 64)
@@ -49,6 +53,7 @@ typedef enum { BLACK, WHITE } Player;
 #define GET_CASTLE_BR2(castle) (((castle) >> 5) & 0x01)
 
 #define INITIAL_CASTLE 0x3F // 0b00111111
+#define MAX_LENGTH_FEN 128
 
 #define GET_ROW(square) ((square) >> 3) // square / 8
 #define GET_COL(square) ((square) & 7)  // square % 8
@@ -92,31 +97,53 @@ typedef enum { BLACK, WHITE } Player;
 enum { NORMAL = 0, PROMOTION = 1, CASTLE = 2, EN_PASSANT = 3, };
 enum { KNIGHT = 0, BISHOP = 1, ROOK = 2, QUEEN = 3 };
 
+static const char INITIAL_BOARD[64] = {
+	'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
+	'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P',
+	'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'
+};
+
+CHESSDEF void print_board(char board[64]);
+
 CHESSDEF void make_move(char board[64], const Move move);
 CHESSDEF void undo_move(char board[64], const Move move, const char captured_piece);
 CHESSDEF void update_castle(const char board[64], Castle* castle);
-CHESSDEF bool is_in_check(const char board[64], const Player player);
-CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_move);
-CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_move);
-CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], unsigned char* count, const Player player, const unsigned char castle, const Move last_move);
-CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player);
-CHESSDEF unsigned long long perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player);
+CHESSDEF bool is_in_check(const char board[64], const Player player); /* DONE BOTH */
 
-void run_tests();
+CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_move); /* DONE BOTH */
+CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_move); /* DONE BOTH */
 
-// TODO: is_move_legal(const char[64], const Move);
+// Add *add_move() as a function parameter
+static void add_move(char board[64], Move valid_moves[256], const Move move, unsigned char* count, const Player player);
+CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], unsigned char* count, const Player player, const unsigned char castle, const Move last_move); /* DONE BOTH */
+CHESSDEF void generate_valid_moves_action(char board[64], Move valid_moves[256], unsigned char* count, const Player player, const unsigned char castle, const Move last_move);
+
+CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player); /* DONE BOTH */
+CHESSDEF unsigned long long perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player); /* DONE BOTH */
+
+// void run_tests();
 
 // Not tested yet!
-CHESSDEF bool can_en_passant(const char board[64], const Player player, const Move last_move);
-CHESSDEF bool can_castle(const char board[64], const Player player, Castle* castle);
+CHESSDEF bool can_en_passant(const char board[64], const Player player, const Move last_move); /* DONE BOTH */
+CHESSDEF bool can_castle(const char board[64], const Player player, Castle* castle);           /* DONE BOTH */
 
 // In develop
 CHESSDEF bool is_check_move(char board[64], Move move);
-CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char piece);
 CHESSDEF bool is_capture_move(const char board[64], const Move move);
+CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char piece);
 CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char *count, bool (*filter)(const char board[64], const Move move));
-
 CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsigned char count, char *dest);
+
+// TODO:
+CHESSDEF void fen_to_board(char board[64], char *fen);
+CHESSDEF void board_to_fen(char *fen, char board[64]);
+CHESSDEF bool is_legal_move(const char board[64], const Move move, Castle castle, Move last_move);
+
 
 #ifdef __cplusplus
 }
@@ -124,11 +151,22 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsi
 
 #ifdef CHESS_IMPLEMENTATION
 
-//
-// Created by Daniel on 2/1/2025.
-//
+CHESSDEF void print_board(char board[64])
+{
+	printf("  a b c d e f g h\n");
+	printf(" +---------------+\n");
 
-#include "chess.h"
+	for (int row = 0; row < 8; row++) {
+		printf("%d|", 9 - (row + 1));
+		for (int col = 0; col < 8; col++) {
+			printf("%c", board[row * 8 + col]);
+			if (col != 7) printf(" ");
+		}
+		printf("|\n");
+	}
+
+	printf(" +---------------+\n");
+}
 
 CHESSDEF void make_move(char board[64], const Move move)
 {
@@ -264,6 +302,11 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 		return false;
 	}
 
+	if (player == BOTH)
+	{
+		return is_attacked(board, square, WHITE) || is_attacked(board, square, BLACK);
+	}
+
 	if ((IS_WHITE_PIECE(board[square]) && player == WHITE) || (IS_BLACK_PIECE(board[square]) && player == BLACK))
 	{
 		return false;
@@ -344,6 +387,11 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 
 CHESSDEF bool is_in_check(const char board[64], const Player player)
 {
+	if (player == BOTH)
+	{
+        return is_in_check(board, WHITE) || is_in_check(board, BLACK);
+	}
+
 	const char king = player == WHITE ? 'K' : 'k';
 
 	for (Square square = 0; square < 64; square++)
@@ -355,6 +403,10 @@ CHESSDEF bool is_in_check(const char board[64], const Player player)
 
 CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_move)
 {
+	if (player == BOTH) {
+		return is_checkmate(board, WHITE, last_move) || is_checkmate(board, BLACK, last_move);
+	}
+
 	if (is_in_check(board, player))
 	{
 		Move valid_moves[256];
@@ -373,6 +425,10 @@ CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_
 
 CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_move)
 {
+	if (player == BOTH) {
+		return is_stalemate(board, WHITE, last_move) || is_stalemate(board, BLACK, last_move);
+	}
+
 	if (!is_in_check(board, player))
 	{
 		Move valid_moves[256];
@@ -391,6 +447,12 @@ CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_
 
 CHESSDEF bool can_en_passant(const char board[64], const Player player, const Move last_move)
 {
+	// Useful? (don't think so this is necessary)
+	if (player == BOTH)
+	{
+		return can_en_passant(board, WHITE, last_move) || can_en_passant(board, BLACK, last_move);
+	}
+
 	for (Square square = 24; square < 40; square++)
 	{
 		if ((player == WHITE && board[square] == 'P') || (player == BLACK && board[square] == 'B'))
@@ -410,6 +472,12 @@ CHESSDEF bool can_en_passant(const char board[64], const Player player, const Mo
 CHESSDEF bool can_castle(const char board[64], const Player player, Castle* castle)
 {
 	update_castle(board, castle);
+
+	if (player == BOTH)
+	{
+		return can_castle(board, WHITE, castle) || can_castle(board, BLACK, castle);
+	}
+
 	return player == WHITE ? GET_CASTLE_WK(*castle) && (GET_CASTLE_WR1(*castle) || GET_CASTLE_WR2(*castle))
 						   : GET_CASTLE_BK(*castle) && (GET_CASTLE_BR1(*castle) || GET_CASTLE_BR2(*castle));
 }
@@ -429,6 +497,18 @@ static void add_move(char board[64], Move valid_moves[256], const Move move, uns
 CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], unsigned char* count, const Player player, Castle castle, const Move last_move)
 {
 	*count = 0;
+
+	if (player == BOTH)
+	{
+		unsigned char white_count = 0, black_count = 0;
+
+		generate_valid_moves(board, valid_moves, &white_count, WHITE, castle, last_move);
+		generate_valid_moves(board, valid_moves + white_count, &black_count, BLACK, castle, last_move);
+
+		*count = white_count + black_count;
+		return;
+	}
+
 	for (Square square = 0; square < 64; ++square)
 	{
 		const char piece = board[square];
@@ -728,6 +808,12 @@ CHESSDEF unsigned long long perft(char board[64], const int depth, const Player 
 {
 	if (depth == 0) return 1;
 
+	if (player == BOTH)
+	{
+		return perft(board, depth, WHITE, castle, last_move, switch_player) +
+			   perft(board, depth, BLACK, castle, last_move, switch_player);
+	}
+
 	Move valid_moves[256];
 	unsigned char move_count = 0;
 	unsigned long long total_moves = 0;
@@ -923,9 +1009,6 @@ CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char 
 	*count = write_index;
 }
 
-#include <ctype.h>
-#include <string.h>
-
 /*
  * Use https://lichess.org/analysis for test, paste it to the PGN input
  */
@@ -936,22 +1019,31 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsi
 
     char piece = board[GET_FROM(move)];
 
+    // Castling
     if (GET_TYPE(move) == CASTLE)
     {
         if (GET_TO(move) == 62 || GET_TO(move) == 6) {
-            strcpy(dest, "O-O");
+            dest[0] = 'O'; dest[1] = '-'; dest[2] = 'O'; dest[3] = '\0';
         } else if (GET_TO(move) == 58 || GET_TO(move) == 2) {
-            strcpy(dest, "O-O-O");
+            dest[0] = 'O'; dest[1] = '-'; dest[2] = 'O'; dest[3] = '-'; dest[4] = 'O'; dest[5] = '\0';
         }
         return;
     }
 
+    // Convert piece to uppercase manually
     if (piece != 'p' && piece != 'P')
     {
-        notation[notation_length++] = (char)(toupper(piece));
+        if (piece >= 'a' && piece <= 'z')
+        {
+            notation[notation_length++] = (char)(piece - 32);
+        }
+        else
+        {
+            notation[notation_length++] = piece;
+        }
     }
 
-    // Disambiguation: Check if another piece of the same type can move to the same square
+    // Disambiguation
     bool needs_file = false, needs_rank = false;
     for (unsigned char i = 0; i < count; i++) {
         Move temp_move = valid_moves[i];
@@ -970,21 +1062,12 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsi
         }
     }
 
-    // if (needs_file) notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a' - 1;
-    // if (needs_rank) notation[notation_length++] = '1' + GET_ROW(GET_FROM(move));
+    // Append file/rank disambiguation if needed
+    if (needs_file) notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';
+    if (needs_rank) notation[notation_length++] = '1' + GET_ROW(GET_FROM(move));
 
-	notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';
-	notation[notation_length++] = '0' + 8 - GET_ROW(GET_FROM(move));
-
-	// Capture Handling
-    // if (board[GET_TO(move)] != ' ' || GET_TYPE(move) == EN_PASSANT)
-    // {
-    //     if (piece == 'p' || piece == 'P')
-    //     {
-    //         notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';  // Pawn capture includes file
-    //     }
-    //     notation[notation_length++] = 'x';
-    // }
+    notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';
+    notation[notation_length++] = '0' + 8 - GET_ROW(GET_FROM(move));
 
     // Destination Square
     notation[notation_length++] = GET_COL(GET_TO(move)) + 'a';
@@ -994,22 +1077,22 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsi
     if (GET_TYPE(move) == PROMOTION)
     {
         notation[notation_length++] = '=';
-    	char promoted_piece;
-    	switch (GET_PROM(move)) {
-    		case KNIGHT: promoted_piece = 'N'; break;
-    		case BISHOP: promoted_piece = 'B'; break;
-    		case ROOK:   promoted_piece = 'R'; break;
-    		case QUEEN:  promoted_piece = 'Q'; break;
-    		default:     promoted_piece = '\0'; // Shouldn't happen
-    	}
+        char promoted_piece = '\0';
+        switch (GET_PROM(move)) {
+            case KNIGHT: promoted_piece = 'N'; break;
+            case BISHOP: promoted_piece = 'B'; break;
+            case ROOK:   promoted_piece = 'R'; break;
+            case QUEEN:  promoted_piece = 'Q'; break;
+        }
 
-    	if (promoted_piece) {
-    		notation[notation_length++] = promoted_piece;
-    	}
+        if (promoted_piece) {
+            notation[notation_length++] = promoted_piece;
+        }
     }
 
     notation[notation_length] = '\0';
 }
+
 
 #endif
 
