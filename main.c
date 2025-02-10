@@ -9,6 +9,27 @@
 
 extern void run_tests();
 
+
+bool is_capture_move_better(char board[64], const Move move)
+{
+	// printf("from: %d\n", GET_FROM(move));
+	char temp = board[GET_TO(move)];
+	board[GET_TO(move)] = ' ';
+	bool is_not_attacked = !is_attacked(board, GET_TO(move), IS_WHITE_PIECE(board[GET_FROM(move)]) ? BLACK : WHITE);
+	board[GET_TO(move)] = temp;
+	return is_not_attacked;
+}
+
+bool is_capture_move_better_ult(char board[64], const Move move)
+{
+	// printf("from: %d\n", GET_FROM(move));
+	char temp = board[GET_TO(move)];
+	board[GET_TO(move)] = ' ';
+	bool is_not_attacked = !is_attacked(board, GET_TO(move), IS_WHITE_PIECE(board[GET_FROM(move)]) ? BLACK : WHITE);
+	board[GET_TO(move)] = temp;
+	return is_not_attacked && board[GET_TO(move)] != ' ';
+}
+
 int main(void)
 {
 	// run_tests();
@@ -32,14 +53,14 @@ int main(void)
 	}
 	putchar(10);
 
-	Move valid_moves[MAX_VALID_MOVES];
-	unsigned char count;
+	// Move valid_moves[MAX_VALID_MOVES];
+	// unsigned char count;
 
 	COPY_BOARD(board, INITIAL_BOARD);
-	generate_valid_moves(board, valid_moves, &count, BOTH, INITIAL_CASTLE, 0);
-	print_valid_moves(valid_moves, count);
-
-	return 0;
+	// generate_valid_moves(board, valid_moves, &count, BOTH, INITIAL_CASTLE, 0);
+	// print_valid_moves(valid_moves, count);
+	//
+	// return 0;
 
 	// printf("Move: %s\n", MOVE_TO_STRING(CREATE_MOVE(0, 63, NORMAL, 0)));
 	// printf("Move: `%s`\n", get_move_notation(CREATE_MOVE(52, 36, NORMAL, 0), board));
@@ -56,7 +77,7 @@ int main(void)
 		Player player = WHITE;
 		int move_counter = 0;
 
-		for (int i = 0; i < 256; i++)
+		for (int i = 0; i < 1024; i++)
 		{
 			update_castle(board, &castle);
 			generate_valid_moves(board, valid_moves, &count, player, castle, last_move);
@@ -69,18 +90,18 @@ int main(void)
 
 			last_move = valid_moves[rand() % count];
 
-			filter_moves(board, valid_moves, &count, is_capture_move);
+			filter_moves(board, valid_moves, &count, is_capture_move_better_ult);
 
 			if (count != 0)
 			{
 				last_move = valid_moves[rand() % count];
 			}
 
-			char notation[16] = {0};
-			move_to_PGN(last_move, board, valid_moves, count, notation);
-			if (move_counter % 2 == 0) printf("%d. ", move_counter / 2 + 1);
-
-			printf("%s ", notation);
+			// char notation[16] = {0};
+			// move_to_PGN(last_move, board, valid_moves, count, notation);
+			// if (move_counter % 2 == 0) printf("%d. ", move_counter / 2 + 1);
+			//
+			// printf("%s ", notation);
 
 			// if (move_counter % 2 == 0) printf("\n");
 
@@ -98,10 +119,10 @@ int main(void)
 			// {
 			// 	printf("%c", GET_PROM(last_move) == KNIGHT ? 'N' : GET_PROM(last_move) == BISHOP ? 'B' : GET_PROM(last_move) == ROOK ? 'R' : 'Q');
 			// }
-			// printf("%s", MOVE_TO_STRING(last_move));
+			printf("%s", MOVE_TO_STRING(last_move));
 
 			move_counter++;
-			// putchar(move_counter % 2 == 0  ? 10 : ' ');
+			putchar(move_counter % 2 == 0  ? 10 : ' ');
 
 			// print_board(board);
 			player = SWITCH_PLAYER(player);
