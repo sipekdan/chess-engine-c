@@ -54,6 +54,7 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 
 #define INITIAL_CASTLE 0x3F // 0b00111111
 #define MAX_LENGTH_FEN 128
+#define MAX_VALID_MOVES 256
 
 #define GET_ROW(square) ((square) >> 3) // square / 8
 #define GET_COL(square) ((square) & 7)  // square % 8
@@ -109,6 +110,7 @@ static const char INITIAL_BOARD[64] = {
 };
 
 CHESSDEF void print_board(char board[64]);
+CHESSDEF void print_valid_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count);
 
 CHESSDEF void make_move(char board[64], const Move move);
 CHESSDEF void undo_move(char board[64], const Move move, const char captured_piece);
@@ -119,9 +121,8 @@ CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_
 CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_move); /* DONE BOTH */
 
 // Add *add_move() as a function parameter
-static void add_move(char board[64], Move valid_moves[256], const Move move, unsigned char* count, const Player player);
-CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], unsigned char* count, const Player player, const unsigned char castle, const Move last_move); /* DONE BOTH */
-CHESSDEF void generate_valid_moves_action(char board[64], Move valid_moves[256], unsigned char* count, const Player player, const unsigned char castle, const Move last_move);
+static void add_move(char board[64], Move valid_moves[MAX_VALID_MOVES], const Move move, unsigned char* count, const Player player);
+CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char* count, const Player player, const unsigned char castle, const Move last_move); /* DONE BOTH */
 
 CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player); /* DONE BOTH */
 CHESSDEF unsigned long long perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player); /* DONE BOTH */
@@ -136,14 +137,15 @@ CHESSDEF bool can_castle(const char board[64], const Player player, Castle* cast
 CHESSDEF bool is_check_move(char board[64], Move move);
 CHESSDEF bool is_capture_move(const char board[64], const Move move);
 CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char piece);
-CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char *count, bool (*filter)(const char board[64], const Move move));
-CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsigned char count, char *dest);
+CHESSDEF void filter_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char *count, bool (*filter)(const char board[64], const Move move));
+CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char count, char *dest);
+CHESSDEF bool is_move_in_valid_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count, Move move);
+CHESSDEF bool is_legal_move(char board[64], const Move move, Castle castle, Move last_move);
 
 // TODO:
 CHESSDEF void fen_to_board(char board[64], char *fen);
 CHESSDEF void board_to_fen(char *fen, char board[64]);
-CHESSDEF bool is_legal_move(const char board[64], const Move move, Castle castle, Move last_move);
-
+CHESSDEF void generate_valid_moves_action(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char* count, const Player player, const unsigned char castle, const Move last_move, void (*action)(char board[64], Move valid_moves[MAX_VALID_MOVES], Move move, unsigned char* count, Player player));
 
 #ifdef __cplusplus
 }
@@ -166,6 +168,25 @@ CHESSDEF void print_board(char board[64])
 	}
 
 	printf(" +---------------+\n");
+}
+
+CHESSDEF void print_valid_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count)
+{
+	for (int i = 0; i < count; i++)
+	{
+		Move move = valid_moves[i];
+		printf("%03d. %s (%02d, %02d, %s, %c)\n",
+		       i + 1,
+		       MOVE_TO_STRING(move),
+		       GET_FROM(move),
+		       GET_TO(move),
+		       GET_TYPE(move) == NORMAL ? "NORMAL" :
+			       GET_TYPE(move) == PROMOTION ? "PROMOTION" :
+			       GET_TYPE(move) == CASTLE ? "CASTLE" :
+			       GET_TYPE(move) == EN_PASSANT ? "EN_PASSANT" : "UNKNOWN",
+		       GET_TYPE(move) == PROMOTION ? (GET_PROM(move) == KNIGHT ? 'K' : GET_PROM(move) == BISHOP ? 'B' : GET_PROM(move) == ROOK ? 'R' : GET_PROM(move) == QUEEN ? 'Q' : '?') : '-'
+		);
+	}
 }
 
 CHESSDEF void make_move(char board[64], const Move move)
@@ -409,7 +430,7 @@ CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_
 
 	if (is_in_check(board, player))
 	{
-		Move valid_moves[256];
+		Move valid_moves[MAX_VALID_MOVES];
 		unsigned char count;
 
 		// Needs to use last move for en-passant (case where en-passant will save you from checkmate)
@@ -431,7 +452,7 @@ CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_
 
 	if (!is_in_check(board, player))
 	{
-		Move valid_moves[256];
+		Move valid_moves[MAX_VALID_MOVES];
 		unsigned char count;
 
 		// Needs to use last move for en-passant (case where en-passant is the only left move)
@@ -482,7 +503,7 @@ CHESSDEF bool can_castle(const char board[64], const Player player, Castle* cast
 						   : GET_CASTLE_BK(*castle) && (GET_CASTLE_BR1(*castle) || GET_CASTLE_BR2(*castle));
 }
 
-static void add_move(char board[64], Move valid_moves[256], const Move move, unsigned char* count, const Player player)
+static void add_move(char board[64], Move valid_moves[MAX_VALID_MOVES], const Move move, unsigned char* count, const Player player)
 {
 	const char captured_piece = board[GET_TO(move)];
 	make_move(board, move);
@@ -494,7 +515,13 @@ static void add_move(char board[64], Move valid_moves[256], const Move move, uns
 
 	undo_move(board, move, captured_piece);
 }
-CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[256], unsigned char* count, const Player player, Castle castle, const Move last_move)
+
+CHESSDEF void generate_valid_moves_action(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char* count, const Player player, Castle castle, const Move last_move, void (*action)(char board[64], Move valid_moves[MAX_VALID_MOVES], Move move, unsigned char* count, Player player))
+{
+	// TODO: do the action on adding move
+}
+
+CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char* count, const Player player, const unsigned char castle, const Move last_move)
 {
 	*count = 0;
 
@@ -814,7 +841,7 @@ CHESSDEF unsigned long long perft(char board[64], const int depth, const Player 
 			   perft(board, depth, BLACK, castle, last_move, switch_player);
 	}
 
-	Move valid_moves[256];
+	Move valid_moves[MAX_VALID_MOVES];
 	unsigned char move_count = 0;
 	unsigned long long total_moves = 0;
 
@@ -996,7 +1023,7 @@ CHESSDEF bool is_capture_move(const char board[64], const Move move)
 	return board[GET_TO(move)] != ' ' || GET_TYPE(move) == EN_PASSANT;
 }
 
-CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char *count, bool (*filter)(const char board[64], const Move move))
+CHESSDEF void filter_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char *count, bool (*filter)(const char board[64], const Move move))
 {
 	unsigned char write_index = 0;
 	for (unsigned char read_index = 0; read_index < *count; read_index++)
@@ -1012,7 +1039,7 @@ CHESSDEF void filter_moves(char board[64], Move valid_moves[256], unsigned char 
 /*
  * Use https://lichess.org/analysis for test, paste it to the PGN input
  */
-CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsigned char count, char *dest)
+CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char count, char *dest)
 {
     char *notation = &dest[0];
     size_t notation_length = 0;
@@ -1093,6 +1120,27 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[256], unsi
     notation[notation_length] = '\0';
 }
 
+CHESSDEF bool is_move_in_valid_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count, Move move)
+{
+	for (int i = 0; i < count; i++)
+	{
+		if (valid_moves[i] == move) return true;
+	}
+	return false;
+}
+
+CHESSDEF bool is_legal_move(char board[64], const Move move, Castle castle, Move last_move)
+{
+	Move valid_moves[MAX_VALID_MOVES];
+	unsigned char count;
+	generate_valid_moves(board, valid_moves, &count, BOTH, castle, last_move);
+	return is_move_in_valid_moves(valid_moves, count, move);
+}
+
+CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char *count, int (*cmp)(Move a, Move b))
+{
+	// TODO: sort moves
+}
 
 #endif
 

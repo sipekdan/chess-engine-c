@@ -11,8 +11,8 @@ extern void run_tests();
 
 int main(void)
 {
-	run_tests();
-	return 0;
+	// run_tests();
+	// return 0;
 
 	srand(time(NULL));
 	char board[64] = {
@@ -26,22 +26,20 @@ int main(void)
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
 	};
 
-	char init_board[64] = {
-		'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
-		'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
-		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-		'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P',
-		'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'
-	};
-
 	for (int i = 0; i < 64; i++) {
 		if (i % 8 == 0) putchar(10);
 		printf("%3d", i);
 	}
 	putchar(10);
+
+	Move valid_moves[MAX_VALID_MOVES];
+	unsigned char count;
+
+	COPY_BOARD(board, INITIAL_BOARD);
+	generate_valid_moves(board, valid_moves, &count, BOTH, INITIAL_CASTLE, 0);
+	print_valid_moves(valid_moves, count);
+
+	return 0;
 
 	// printf("Move: %s\n", MOVE_TO_STRING(CREATE_MOVE(0, 63, NORMAL, 0)));
 	// printf("Move: `%s`\n", get_move_notation(CREATE_MOVE(52, 36, NORMAL, 0), board));
@@ -49,9 +47,9 @@ int main(void)
 	bool run_games = true;
 	while (run_games)
 	{
-		COPY_BOARD(board, init_board);
+		COPY_BOARD(board, INITIAL_BOARD);
 
-		Move valid_moves[256];
+		Move valid_moves[MAX_VALID_MOVES];
 		uint8_t count;
 		Castle castle = INITIAL_CASTLE;
 		Move last_move = 0;
