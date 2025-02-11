@@ -31,8 +31,8 @@ bool is_capture_move_better_ult(char board[64], const Move move)
 
 int main(void)
 {
-	run_tests();
-	return 0;
+//    run_tests();
+//	return 0;
 
 	srand(time(NULL));
 	char board[64] = {
@@ -52,14 +52,17 @@ int main(void)
 	}
 	putchar(10);
 
-	// Move valid_moves[MAX_VALID_MOVES];
-	// unsigned char count;
+//    printf("Attacked: %s\n", is_attacked_by_piece(board, 0, 'n') ? "true" : "false");
+
+    return 0;
+	Move valid_moves[MAX_VALID_MOVES];
+	unsigned char count;
 
 	COPY_BOARD(board, INITIAL_BOARD);
-	// generate_valid_moves(board, valid_moves, &count, BOTH, INITIAL_CASTLE, 0);
-	// print_valid_moves(valid_moves, count);
-	//
-	// return 0;
+	generate_valid_moves(board, valid_moves, &count, BOTH, INITIAL_CASTLE, 0);
+	print_valid_moves(valid_moves, count);
+
+	return 0;
 
 	// printf("Move: %s\n", MOVE_TO_STRING(CREATE_MOVE(0, 63, NORMAL, 0)));
 	// printf("Move: `%s`\n", get_move_notation(CREATE_MOVE(52, 36, NORMAL, 0), board));
