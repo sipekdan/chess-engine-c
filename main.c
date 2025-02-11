@@ -9,7 +9,6 @@
 
 extern void run_tests();
 
-
 bool is_capture_move_better(char board[64], const Move move)
 {
 	// printf("from: %d\n", GET_FROM(move));
@@ -32,8 +31,8 @@ bool is_capture_move_better_ult(char board[64], const Move move)
 
 int main(void)
 {
-	// run_tests();
-	// return 0;
+	run_tests();
+	return 0;
 
 	srand(time(NULL));
 	char board[64] = {

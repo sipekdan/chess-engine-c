@@ -61,6 +61,7 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 
 #define IS_VALID_SQUARE(square) ((square >= 0) && (square < 64))
 
+// TODO: Make this better
 #define IS_WHITE_PIECE(piece) ((piece) >= 'A' && (piece) <= 'Z') // (isupper(piece))
 #define IS_BLACK_PIECE(piece) ((piece) >= 'a' && (piece) <= 'z') // (islower(piece))
 
@@ -137,7 +138,7 @@ CHESSDEF bool can_castle(const char board[64], const Player player, Castle* cast
 CHESSDEF bool is_check_move(char board[64], Move move);
 CHESSDEF bool is_capture_move(const char board[64], const Move move);
 CHESSDEF bool is_attacked_by_piece(char board[64], const Square square, char piece);
-CHESSDEF void filter_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char *count, bool (*filter)(const char board[64], const Move move));
+CHESSDEF void filter_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char *count, bool (*filter)(char board[64], const Move move));
 CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char count, char *dest);
 CHESSDEF bool is_move_in_valid_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count, Move move);
 CHESSDEF bool is_legal_move(char board[64], const Move move, Castle castle, Move last_move);
@@ -333,19 +334,12 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 		return false;
 	}
 
-	const char knight = (player == WHITE) ? 'N' : 'n';
-	const char pawn   = (player == WHITE) ? 'P' : 'p';
-	const char bishop = (player == WHITE) ? 'B' : 'b';
-	const char rook   = (player == WHITE) ? 'R' : 'r';
-	const char queen  = (player == WHITE) ? 'Q' : 'q';
-	const char king   = (player == WHITE) ? 'K' : 'k';
-
 	if ((IS_VALID_SQUARE(square + (player == BLACK ? -7 : 7)) &&
 			ABS(GET_COL(square) - GET_COL(square + (player == BLACK ? -7 : 7))) == 1 &&
-			board[square + (player == BLACK ? -7 : 7)] == pawn) ||
+			board[square + (player == BLACK ? -7 : 7)] == ((player == WHITE) ? 'P' : 'p')) ||
 		(IS_VALID_SQUARE(square + (player == BLACK ? -9 : 9)) &&
 			ABS(GET_COL(square) - GET_COL(square + (player == BLACK ? -9 : 9))) == 1 &&
-			board[square + (player == BLACK ? -9 : 9)] == pawn))
+			board[square + (player == BLACK ? -9 : 9)] == ((player == WHITE) ? 'P' : 'p')))
 	{
 		return true;
 	}
@@ -357,7 +351,7 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 		if (IS_VALID_SQUARE(target_square) &&
 			ABS(GET_COL(target_square) - GET_COL(square)) <= 2 &&
 			ABS(GET_ROW(target_square) - GET_ROW(square)) <= 2 &&
-			board[target_square] == knight)
+			board[target_square] == ((player == WHITE) ? 'N' : 'n'))
 		{
 			return true;
 		}
@@ -369,7 +363,8 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 	{
 		for (unsigned char k = 1; k < 8; ++k)
 		{
-			const Square target_square = square + directions[d] * k;
+			const char direction = directions[d];
+			const Square target_square = square + direction * k;
 
 			if (!IS_VALID_SQUARE(target_square)) break;
 
@@ -377,14 +372,14 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 			const unsigned char col = GET_COL(target_square);
 
 			// Boundary checks for each direction
-			if ((directions[d] == 1 && col == 0) || // Right edge, wrap around
-				(directions[d] == -1 && col == 7) || // Left edge, wrap around
-				(directions[d] == 8 && row == 0) || // Bottom edge, wrap around
-				(directions[d] == -8 && row == 7) || // Top edge, wrap around
-				(directions[d] == 9 && (col == 0 || row == 0)) || // Bottom-right
-				(directions[d] == -9 && (col == 7 || row == 7)) || // Top-left
-				(directions[d] == 7 && (col == 7 || row == 0)) || // Bottom-left
-				(directions[d] == -7 && (col == 0 || row == 7))) // Top-right
+			if ((direction == 1 && col == 0) || // Right edge, wrap around
+				(direction == -1 && col == 7) || // Left edge, wrap around
+				// (directions[d] == 8 && row == 0) || // Bottom edge, wrap around
+				// (directions[d] == -8 && row == 7) || // Top edge, wrap around
+				(direction == 9 && (col == 0 || row == 0)) || // Bottom-right
+				(direction == -9 && (col == 7 || row == 7)) || // Top-left
+				(direction == 7 && (col == 7 || row == 0)) || // Bottom-left
+				(direction == -7 && (col == 0 || row == 7))) // Top-right
 			{
 				break;
 			}
@@ -392,10 +387,10 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 			const char piece = board[target_square];
 			if (piece != ' ')
 			{
-				if (piece == queen ||
-					(d <= 3 && piece == rook) ||
-					(d > 3 && piece == bishop) ||
-					(piece == king && k == 1))
+				if (piece == ((player == WHITE) ? 'Q' : 'q') ||
+					(d <= 3 && piece == ((player == WHITE) ? 'R' : 'r')) ||
+					(d > 3 && piece == ((player == WHITE) ? 'B' : 'b')) ||
+					(piece == ((player == WHITE) ? 'K' : 'k') && k == 1))
 				{
 					return true;
 				}
@@ -1023,7 +1018,7 @@ CHESSDEF bool is_capture_move(const char board[64], const Move move)
 	return board[GET_TO(move)] != ' ' || GET_TYPE(move) == EN_PASSANT;
 }
 
-CHESSDEF void filter_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char *count, bool (*filter)(const char board[64], const Move move))
+CHESSDEF void filter_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char *count, bool (*filter)(char board[64], const Move move))
 {
 	unsigned char write_index = 0;
 	for (unsigned char read_index = 0; read_index < *count; read_index++)
