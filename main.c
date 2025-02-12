@@ -5,6 +5,7 @@
 // #include "chess.h"
 
 #define CHESS_IMPLEMENTATION
+#define USE_CAMEL_CASE
 #include "chess_header_only.h"
 
 extern void run_tests();
@@ -31,10 +32,18 @@ bool is_capture_move_better_ult(char board[64], const Move move)
 
 int main(void)
 {
-//    run_tests();
-//	return 0;
+    for (int i = 0; i < 64; i++) {
+        if (i % 8 == 0) putchar(10);
+        printf("%3d", i);
+    }
+    putchar(10);
 
-	srand(time(NULL));
+
+    run_tests();
+	return 0;
+
+
+    srand(time(NULL));
 	char board[64] = {
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
@@ -46,11 +55,6 @@ int main(void)
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
 	};
 
-	for (int i = 0; i < 64; i++) {
-		if (i % 8 == 0) putchar(10);
-		printf("%3d", i);
-	}
-	putchar(10);
 
 //    printf("Attacked: %s\n", is_attacked_by_piece(board, 0, 'n') ? "true" : "false");
 

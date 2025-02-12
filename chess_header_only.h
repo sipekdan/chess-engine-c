@@ -19,6 +19,7 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 
 typedef unsigned short Move;
 typedef unsigned char Square;
@@ -31,6 +32,8 @@ typedef enum { BLACK, WHITE, BOTH } Player;
  * move type:    2 bits (2^2 =  4) 0 -> normal, 1 -> promotion, 2 -> castle, 3 -> en-passant
  * promo. piece: 2 bits (2^2 =  4) 0 -> knight, 1 -> bishop,    2 -> rook,   3 -> queen
  */
+
+#define UNREACHABLE assert(0 && "This code should never be reached!")
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -62,6 +65,8 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 #define IS_BLACK_PIECE(piece) ((piece) >= 'a' && (piece) <= 'z') // (islower(piece))
 
 #define SWITCH_PLAYER(player) ((player) == WHITE ? BLACK : WHITE)
+#define CHECK_VALID_PLAYER(player) ((player) == WHITE || (player) == BLACK || (player) == BOTH)
+#define IS_INVALID_PROMOTION_PIECE(piece) ((piece) > QUEEN)
 
 #define COPY_BOARD(dest, src) \
 	for (int i = 0; i < 64; ++i) { \
@@ -106,6 +111,34 @@ static const char INITIAL_BOARD[64] = {
 	'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'
 };
 
+#ifdef USE_CAMEL_CASE
+
+#define printBoard            print_board
+#define printValidMoves       print_valid_moves
+#define makeMove              make_move
+#define undoMove              undo_move
+#define updateCastle          update_castle
+#define isInCheck             is_in_check
+#define isCheckmate           is_checkmate
+#define isStalemate           is_stalemate
+#define addMove               add_move
+#define generateValidMoves    generate_valid_moves
+#define isAttacked            is_attacked
+#define canEnPassant          can_en_passant
+#define canCastle             can_castle
+#define hasCastleRights       has_castle_rights
+#define isCheckMove           is_check_move
+#define isCaptureMove         is_capture_move
+#define isAttackedByPiece     is_attacked_by_piece
+#define filterMoves           filter_moves
+#define moveToPGN             move_to_PGN
+#define isMoveInValidMoves    is_move_in_valid_moves
+#define isLegalMove           is_legal_move
+#define fenToBoard            fen_to_board
+#define boardToFen            board_to_fen
+
+#endif // USE_CAMEL_CASE
+
 CHESSDEF void print_board(char board[64]);
 CHESSDEF void print_valid_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count);
 
@@ -128,10 +161,11 @@ CHESSDEF unsigned long long perft(char board[64], const int depth, const Player 
 
 // Not tested yet!
 CHESSDEF bool can_en_passant(const char board[64], const Player player, const Move last_move); /* DONE BOTH */
+CHESSDEF bool has_castle_rights(const char board[64], const Player player, Castle* castle);    /* DONE BOTH */
 CHESSDEF bool can_castle(const char board[64], const Player player, Castle* castle);           /* DONE BOTH */
 
 // In develop
-CHESSDEF bool is_check_move(char board[64], Move move);
+CHESSDEF bool is_check_move(const char board[64], Move move);
 CHESSDEF bool is_capture_move(const char board[64], const Move move);
 CHESSDEF bool is_attacked_by_piece(const char board[64], const Square square, char piece);
 CHESSDEF void filter_moves(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char *count, bool (*filter)(char board[64], const Move move));
@@ -142,7 +176,9 @@ CHESSDEF bool is_legal_move(char board[64], const Move move, Castle castle, Move
 // TODO:
 CHESSDEF void fen_to_board(char board[64], char *fen);
 CHESSDEF void board_to_fen(char *fen, char board[64]);
-CHESSDEF void generate_valid_moves_action(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char* count, const Player player, const unsigned char castle, const Move last_move, void (*action)(char board[64], Move valid_moves[MAX_VALID_MOVES], Move move, unsigned char* count, Player player));
+// CHESSDEF void generate_valid_moves_action(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char* count, const Player player, const unsigned char castle, const Move last_move, void (*action)(char board[64], Move valid_moves[MAX_VALID_MOVES], Move move, unsigned char* count, Player player));
+CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char *count, int (*cmp)(Move a, Move b));
+
 
 #ifdef __cplusplus
 }
@@ -205,10 +241,9 @@ CHESSDEF void make_move(char board[64], const Move move)
 
 	case PROMOTION:
 		{
-			if (GET_PROM(move) > QUEEN)
+			if (IS_INVALID_PROMOTION_PIECE(GET_PROM(move)))
 			{
-				printf("Invalid promotion piece index\n");
-				return;
+				UNREACHABLE;
 			}
 
 			board[to] = IS_WHITE_PIECE(piece) ?
@@ -245,7 +280,7 @@ CHESSDEF void make_move(char board[64], const Move move)
 		break;
 
 	default:
-		printf("Unreachable");
+		UNREACHABLE;
 	}
 }
 
@@ -293,8 +328,7 @@ CHESSDEF void undo_move(char board[64], const Move move, const char captured_pie
 		break;
 
 	default:
-		printf("Unreachable");
-		break;
+		UNREACHABLE;
 	}
 }
 
@@ -317,7 +351,11 @@ CHESSDEF void update_castle(const char board[64], Castle* castle)
 
 CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player)
 {
-	if (!IS_VALID_SQUARE(square))
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+    if (!IS_VALID_SQUARE(square))
 	{
 		return false;
 	}
@@ -401,6 +439,11 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 
 CHESSDEF bool is_in_check(const char board[64], const Player player)
 {
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+
 	if (player == BOTH)
 	{
         return is_in_check(board, WHITE) || is_in_check(board, BLACK);
@@ -417,6 +460,11 @@ CHESSDEF bool is_in_check(const char board[64], const Player player)
 
 CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_move)
 {
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+
 	if (player == BOTH) {
 		return is_checkmate(board, WHITE, last_move) || is_checkmate(board, BLACK, last_move);
 	}
@@ -439,6 +487,10 @@ CHESSDEF bool is_checkmate(char board[64], const Player player, const Move last_
 
 CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_move)
 {
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
 	if (player == BOTH) {
 		return is_stalemate(board, WHITE, last_move) || is_stalemate(board, BLACK, last_move);
 	}
@@ -461,7 +513,11 @@ CHESSDEF bool is_stalemate(char board[64], const Player player, const Move last_
 
 CHESSDEF bool can_en_passant(const char board[64], const Player player, const Move last_move)
 {
-	// Useful? (don't think so this is necessary)
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+    // Useful? (don't think so this is necessary)
 	if (player == BOTH)
 	{
 		return can_en_passant(board, WHITE, last_move) || can_en_passant(board, BLACK, last_move);
@@ -469,7 +525,7 @@ CHESSDEF bool can_en_passant(const char board[64], const Player player, const Mo
 
 	for (Square square = 24; square < 40; square++)
 	{
-		if ((player == WHITE && board[square] == 'P') || (player == BLACK && board[square] == 'B'))
+		if ((player == WHITE && board[square] == 'P') || (player == BLACK && board[square] == 'p'))
 		{
 			if (ABS(GET_FROM(last_move) - GET_TO(last_move)) == 16 && board[GET_TO(last_move)] == (player == WHITE ? 'p' : 'P'))
 			{
@@ -483,22 +539,121 @@ CHESSDEF bool can_en_passant(const char board[64], const Player player, const Mo
 	return false;
 }
 
-CHESSDEF bool can_castle(const char board[64], const Player player, Castle* castle)
-{
-	update_castle(board, castle);
 
-	if (player == BOTH)
+CHESSDEF bool has_castle_rights(const char board[64], const Player player, Castle* castle)
+{
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+    // FIXME: Currently removed
+    // update_castle(board, castle);
+
+    if (player == BOTH)
 	{
-		return can_castle(board, WHITE, castle) || can_castle(board, BLACK, castle);
+		return has_castle_rights(board, WHITE, castle) || has_castle_rights(board, BLACK, castle);
 	}
 
-	return player == WHITE ? GET_CASTLE_WK(*castle) && (GET_CASTLE_WR1(*castle) || GET_CASTLE_WR2(*castle))
-						   : GET_CASTLE_BK(*castle) && (GET_CASTLE_BR1(*castle) || GET_CASTLE_BR2(*castle));
+    if (player == WHITE)
+    {
+        GET_CASTLE_WK(*castle) && (GET_CASTLE_WR1(*castle) || GET_CASTLE_WR2(*castle));
+    }
+    else if (player == BLACK)
+    {
+        GET_CASTLE_BK(*castle) && (GET_CASTLE_BR1(*castle) || GET_CASTLE_BR2(*castle));
+    }
+    else
+    {
+        UNREACHABLE;
+    }
+
 }
+
+
+bool can_castle(const char *board, const Player player, Castle *castle) {
+
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+    update_castle(board, castle);
+
+    if (player == BOTH)
+    {
+        return can_castle(board, WHITE, castle) || can_castle(board, BLACK, castle);
+    }
+
+    if (is_in_check(board, player))
+    {
+        return false;
+    }
+
+    if (player == WHITE)
+    {
+        // white king-side castle
+        if (GET_CASTLE_WK(*castle) && GET_CASTLE_WR2(*castle))
+        {
+            if (board[61] == ' ' && board[62] == ' ')
+            {
+                if (!is_attacked(board, 61, BLACK) && !is_attacked(board, 62, BLACK))
+                {
+                    return true;
+                }
+            }
+        }
+        // white queen-side castle
+        if (GET_CASTLE_WK(*castle) && GET_CASTLE_WR1(*castle))
+        {
+            if (board[57] == ' ' && board[58] == ' ' && board[59] == ' ')
+            {
+                if (!is_attacked(board, 58, BLACK) && !is_attacked(board, 59, BLACK))
+                {
+                    return true;
+                }
+            }
+        }
+    } else if (player == BLACK)
+    {
+        // black king-side castle
+        if (GET_CASTLE_BK(*castle) && GET_CASTLE_BR2(*castle))
+        {
+            if (board[5] == ' ' && board[6] == ' ')
+            {
+                if (!is_attacked(board, 5, WHITE) && !is_attacked(board, 6, WHITE))
+                {
+                    return true;
+                }
+            }
+        }
+
+        // black queen-side castle
+        if (GET_CASTLE_BK(*castle) && GET_CASTLE_BR1(*castle))
+        {
+            if (board[3] == ' ' && board[2] == ' ' && board[1] == ' ')
+            {
+                if (!is_attacked(board, 3, WHITE) && !is_attacked(board, 2, WHITE))
+                {
+                    return true;
+                }
+            }
+        }
+    } else
+    {
+        UNREACHABLE;
+    }
+
+
+    return false;
+}
+
 
 static void add_move(char board[64], Move valid_moves[MAX_VALID_MOVES], const Move move, unsigned char* count, const Player player)
 {
-	const char captured_piece = board[GET_TO(move)];
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+    const char captured_piece = board[GET_TO(move)];
 	make_move(board, move);
 
 	if (!is_in_check(board, player))
@@ -614,7 +769,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 								         player);
 							}
 						}
-					}
+                    }
 				}
 				break;
 
@@ -781,7 +936,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 				break;
 
 			default:
-				break;
+                UNREACHABLE;
 			}
 		}
 	}
@@ -805,7 +960,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 			}
 		}
 	}
-	else
+    else if (player == BLACK)
 	{
 		if (!is_in_check(board, player))
 		{
@@ -823,10 +978,19 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 			}
 		}
 	}
+    else
+    {
+        UNREACHABLE;
+    }
 }
 
 CHESSDEF unsigned long long perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player)
 {
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
+
 	if (depth == 0) return 1;
 
 	if (player == BOTH)
@@ -861,6 +1025,11 @@ CHESSDEF unsigned long long perft(char board[64], const int depth, const Player 
 
 CHESSDEF bool is_attacked_by_piece(const char board[64], const Square square, char piece)
 {
+
+#ifdef USE_PLAYER_CHECK
+    if (!CHECK_VALID_PLAYER(player)) { UNREACHABLE; }
+#endif // USE_PLAYER_CHECK
+
     if (!IS_VALID_SQUARE(square))
     {
         return false;
@@ -983,23 +1152,20 @@ CHESSDEF bool is_attacked_by_piece(const char board[64], const Square square, ch
             break;
 
         default:
-            printf("Unreachable\n");
-            break;
+            UNREACHABLE;
     }
 
     return false;
 }
 
 
-
-
-CHESSDEF bool is_check_move(char board[64], Move move)
+CHESSDEF bool is_check_move(const char board[64], Move move)
 {
 	char temp_board[64];
 	COPY_BOARD(temp_board, board);
 	make_move(temp_board, move);
 
-	return is_in_check(temp_board, WHITE) || is_in_check(temp_board, BLACK);
+	return is_in_check(temp_board, BOTH);
 }
 
 CHESSDEF bool is_capture_move(const char board[64], const Move move)
