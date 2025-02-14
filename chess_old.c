@@ -2,7 +2,7 @@
 // Created by Daniel on 2/1/2025.
 //
 
-#include "chess.h"
+#include "chess_old.h"
 
 CHESSDEF void make_move(char board[64], const Move move)
 {

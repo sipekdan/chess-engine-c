@@ -6,7 +6,7 @@
 
 #define CHESS_IMPLEMENTATION
 #define USE_CAMEL_CASE
-#include "chess_header_only.h"
+#include "chess.h"
 
 extern void run_tests();
 
