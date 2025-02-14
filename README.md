@@ -39,3 +39,6 @@ In any C source file where you wish to use the chess engine, include the `chess.
 ```c
 #define CHESS_IMPLEMENTATION
 #include "chess.h"
+```
+
+For practical examples, refer to the examples/ folder. It contains code snippets that demonstrate how to use the chess engine in various scenarios. These examples will help you get started quickly with different use cases.
