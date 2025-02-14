@@ -33,6 +33,8 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
+#define NO_MOVE ((Move)0)
+
 #define CREATE_MOVE(from, to, type, promotion) (((from) << 10) | ((to) << 4) | ((type) << 2) | (promotion))
 
 #define GET_FROM(move) (((move) >> 10) & 0x3F)
@@ -65,7 +67,7 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 #define IS_INVALID_PROMOTION_PIECE(piece) ((piece) > QUEEN)
 
 #define COPY_BOARD(dest, src) \
-	for (int i = 0; i < 64; ++i) (dest)[i] = (src)[i]; \
+	for (int i = 0; i < 64; ++i) (dest)[i] = (src)[i]\
 
 // Testing
 #define INIT_COPY_BOARD(dest, src) \
@@ -151,8 +153,6 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player); /* DONE BOTH */
 CHESSDEF unsigned long long perft(char board[64], const int depth, const Player player, const Castle castle, const Move last_move, const bool switch_player); /* DONE BOTH */
 
-// void run_tests();
-
 // Not tested yet!
 CHESSDEF bool can_en_passant(const char board[64], const Player player, const Move last_move); /* DONE BOTH */
 CHESSDEF bool has_castle_rights(const char board[64], const Player player, Castle* castle);    /* DONE BOTH */
@@ -201,7 +201,7 @@ CHESSDEF void print_board(char board[64])
 
 CHESSDEF void print_valid_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count)
 {
-	for (int i = 0; i < count; i++)
+    for (int i = 0; i < count; i++)
 	{
 		Move move = valid_moves[i];
 		printf("%03d. %s (%02d, %02d, %s, %c)\n",
@@ -750,7 +750,7 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 					}
 
 					// En passant
-					if (last_move != 0)
+					if (last_move != NO_MOVE)
 					{
 						if (ABS(GET_FROM(last_move) - GET_TO(last_move)) == 16 && board[GET_TO(last_move)] == (
 							player == WHITE ? 'p' : 'P'))
