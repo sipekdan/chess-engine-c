@@ -10,7 +10,11 @@ extern "C" {
 #endif
 
 #ifndef CHESSDEF
-#define CHESSDEF
+#ifdef CHESS_STATIC
+#define CHESSDEF static
+#else
+#define CHESSDEF extern
+#endif
 #endif
 
 #include <stdio.h>
@@ -33,8 +37,6 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-#define NO_MOVE ((Move)0)
-
 #define CREATE_MOVE(from, to, type, promotion) (((from) << 10) | ((to) << 4) | ((type) << 2) | (promotion))
 
 #define GET_FROM(move) (((move) >> 10) & 0x3F)
@@ -50,6 +52,7 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 #define GET_CASTLE_BR2(castle) (((castle) >> 5) & 0x01)
 
 #define INITIAL_CASTLE 0x3F // 0b00111111
+#define NO_MOVE ((Move)0)
 #define MAX_LENGTH_FEN 0x80
 #define MAX_VALID_MOVES 0x100
 
@@ -171,7 +174,9 @@ CHESSDEF bool is_legal_move(char board[64], const Move move, Castle castle, Move
 CHESSDEF void fen_to_board(char board[64], char *fen);
 CHESSDEF void board_to_fen(char *fen, char board[64]);
 // CHESSDEF void generate_valid_moves_action(char board[64], Move valid_moves[MAX_VALID_MOVES], unsigned char* count, const Player player, const unsigned char castle, const Move last_move, void (*action)(char board[64], Move valid_moves[MAX_VALID_MOVES], Move move, unsigned char* count, Player player));
-CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char *count, int (*cmp)(Move a, Move b));
+//CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char *count, int (*cmp)(Move a, Move b));
+
+CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count, int (*cmp[])(Move a, Move b), size_t cmp_count);
 
 
 #ifdef __cplusplus
@@ -550,17 +555,14 @@ CHESSDEF bool has_castle_rights(const char board[64], const Player player, Castl
 
     if (player == WHITE)
     {
-        GET_CASTLE_WK(*castle) && (GET_CASTLE_WR1(*castle) || GET_CASTLE_WR2(*castle));
-    }
-    else if (player == BLACK)
-    {
-        GET_CASTLE_BK(*castle) && (GET_CASTLE_BR1(*castle) || GET_CASTLE_BR2(*castle));
-    }
-    else
-    {
-        UNREACHABLE;
+        return GET_CASTLE_WK(*castle) && (GET_CASTLE_WR1(*castle) || GET_CASTLE_WR2(*castle));
     }
 
+	if (player == BLACK)
+    {
+        return GET_CASTLE_BK(*castle) && (GET_CASTLE_BR1(*castle) || GET_CASTLE_BR2(*castle));
+    }
+	UNREACHABLE;
 }
 
 
@@ -1211,6 +1213,7 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[MAX_VALID_
         else
         {
             notation[notation_length++] = piece;
+            printf("`%s`", notation);
         }
     }
 
@@ -1281,9 +1284,39 @@ CHESSDEF bool is_legal_move(char board[64], const Move move, Castle castle, Move
 	return is_move_in_valid_moves(valid_moves, count, move);
 }
 
-CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char *count, int (*cmp)(Move a, Move b))
+CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count, int (*cmp[])(Move a, Move b), size_t cmp_count)
 {
-	// TODO: sort moves
+    if (cmp == NULL || cmp_count == 0) {
+        return;  // No comparisons, no sorting
+    }
+
+    bool swapped;
+    size_t n = count;
+
+    do {
+        swapped = false;
+        for (size_t i = 0; i < n - 1; i++) {
+            Move a = valid_moves[i];
+            Move b = valid_moves[i + 1];
+            int result = 0;
+
+            // Apply each comparison function in order of priority
+            for (size_t j = 0; j < cmp_count; j++) {
+                result = cmp[j](a, b);
+                if (result != 0) {
+                    break;  // If a difference is found, no need to check further comparison functions
+                }
+            }
+
+            if (result > 0) {
+                // Swap the moves if the order is incorrect (a > b)
+                valid_moves[i] = b;
+                valid_moves[i + 1] = a;
+                swapped = true;
+            }
+        }
+        n--;
+    } while (swapped);
 }
 
 #endif // CHESS_IMPLEMENTATION
