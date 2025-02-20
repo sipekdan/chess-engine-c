@@ -995,12 +995,28 @@ CHESSDEF unsigned long long perft(char board[64], const int depth, const Player 
 
 	for (int i = 0; i < move_count; i++)
 	{
+
+		/*
+
+		Old code with copying board.
+
 		char new_board[64] = {0};
 		COPY_BOARD(new_board, board);
 
 		make_move(new_board, valid_moves[i]);
 
 		const unsigned long long level_total = perft(new_board, depth - 1, switch_player ? SWITCH_PLAYER(player) : player, new_castle, valid_moves[i], switch_player);
+
+		total_moves += level_total;
+
+		*/
+
+		char capture_piece = board[GET_TO(valid_moves[i])];
+		make_move(board, valid_moves[i]);
+
+		const unsigned long long level_total = perft(board, depth - 1, switch_player ? SWITCH_PLAYER(player) : player, new_castle, valid_moves[i], switch_player);
+
+		undo_move(board, valid_moves[i], capture_piece);
 
 		total_moves += level_total;
 	}
