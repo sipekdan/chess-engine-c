@@ -81,10 +81,10 @@ typedef enum { BLACK, WHITE, BOTH } Player;
 	({ \
 		static char move_str[6]; \
 		int len = snprintf(move_str, sizeof(move_str), "%c%d%c%d", \
-			(GET_COL(GET_FROM(move))) + 'a',  /* Convert starting column to 'a' - 'h' */ \
-			8 - GET_ROW(GET_FROM(move)),   /* Convert starting row to 1 - 8 */ \
-			(GET_COL(GET_TO(move))) + 'a',    /* Convert ending column to 'a' - 'h' */ \
-			8 - GET_ROW(GET_TO(move))     /* Convert ending row to 1 - 8 */ \
+			(GET_COL(GET_FROM(move))) + 'a', \
+			8 - GET_ROW(GET_FROM(move)), \
+			(GET_COL(GET_TO(move))) + 'a', \
+			8 - GET_ROW(GET_TO(move)) \
 		); \
 		if (GET_TYPE(move) == PROMOTION) { \
 			char prom_piece = (GET_PROM(move) == KNIGHT) ? 'N' : \
@@ -333,19 +333,13 @@ CHESSDEF void undo_move(char board[64], const Move move, const char captured_pie
 
 CHESSDEF void update_castle(const char board[64], Castle* castle)
 {
-	// Check Black Rooks
-	if (board[0] != 'r') { *castle &= ~(1 << 4); } // Bit 4 (Black Rook 1)
-	if (board[7] != 'r') { *castle &= ~(1 << 5); } // Bit 5 (Black Rook 2)
+	if (board[0] != 'r') { *castle &= ~(1 << 4); }
+	if (board[7] != 'r') { *castle &= ~(1 << 5); }
+	if (board[56] != 'R') { *castle &= ~(1 << 1); }
+	if (board[63] != 'R') { *castle &= ~(1 << 2); }
 
-	// Check White Rooks
-	if (board[56] != 'R') { *castle &= ~(1 << 1); } // Bit 1 (White Rook 1)
-	if (board[63] != 'R') { *castle &= ~(1 << 2); } // Bit 2 (White Rook 2)
-
-	// Check Black King
-	if (board[4] != 'k') { *castle &= ~(1 << 3); } // Bit 3 (Black King)
-
-	// Check White King
-	if (board[60] != 'K') { *castle &= ~(1 << 0); } // Bit 0 (White King)
+	if (board[4] != 'k') { *castle &= ~(1 << 3); }
+	if (board[60] != 'K') { *castle &= ~(1 << 0); }
 }
 
 CHESSDEF bool is_attacked(const char board[64], const Square square, const Player player)
@@ -406,15 +400,14 @@ CHESSDEF bool is_attacked(const char board[64], const Square square, const Playe
 			const unsigned char row = GET_ROW(target_square);
 			const unsigned char col = GET_COL(target_square);
 
-			// Boundary checks for each direction
-			if ((direction == 1 && col == 0) || // Right edge, wrap around
-				(direction == -1 && col == 7) || // Left edge, wrap around
-				// (directions[d] == 8 && row == 0) || // Bottom edge, wrap around
-				// (directions[d] == -8 && row == 7) || // Top edge, wrap around
-				(direction == 9 && (col == 0 || row == 0)) || // Bottom-right
-				(direction == -9 && (col == 7 || row == 7)) || // Top-left
-				(direction == 7 && (col == 7 || row == 0)) || // Bottom-left
-				(direction == -7 && (col == 0 || row == 7))) // Top-right
+			if ((direction == 1 && col == 0) ||
+				(direction == -1 && col == 7) ||
+				// (directions[d] == 8 && row == 0) ||
+				// (directions[d] == -8 && row == 7) ||
+				(direction == 9 && (col == 0 || row == 0)) ||
+				(direction == -9 && (col == 7 || row == 7)) ||
+				(direction == 7 && (col == 7 || row == 0)) ||
+				(direction == -7 && (col == 0 || row == 7)))
 			{
 				break;
 			}
@@ -839,7 +832,6 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 							// Ensure target_square is valid
 							if (!IS_VALID_SQUARE(target_square)) break;
 
-							// Ensure rook doesn't wrap around the board
 							if ((i > 1) && GET_ROW(target_square) != GET_ROW(square)) break;
 
 							if (board[target_square] == ' ')
@@ -874,15 +866,12 @@ CHESSDEF void generate_valid_moves(char board[64], Move valid_moves[MAX_VALID_MO
 						{
 							const Square target_square = square + queen_moves[i] * step;
 
-							// Ensure target_square is valid
 							if (!IS_VALID_SQUARE(target_square)) break;
 
-							// Prevent wrapping around board on horizontal moves
 							if ((queen_moves[i] == -1 || queen_moves[i] == 1) && GET_ROW(target_square) != GET_ROW(
 								square))
 								break;
 
-							// Ensure diagonal moves stay on the same diagonal
 							if ((queen_moves[i] == -9 || queen_moves[i] == -7 || queen_moves[i] == 7 || queen_moves[i]
 									== 9) &&
 								ABS(GET_COL(target_square) - GET_COL(square)) != ABS(
@@ -1203,7 +1192,6 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[MAX_VALID_
         return;
     }
 
-    // Convert piece to uppercase manually
     if (piece != 'p' && piece != 'P')
     {
         if (piece >= 'a' && piece <= 'z')
@@ -1236,14 +1224,12 @@ CHESSDEF void move_to_PGN(Move move, char board[64], Move valid_moves[MAX_VALID_
         }
     }
 
-    // Append file/rank disambiguation if needed
     if (needs_file) notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';
     if (needs_rank) notation[notation_length++] = '1' + GET_ROW(GET_FROM(move));
 
     notation[notation_length++] = GET_COL(GET_FROM(move)) + 'a';
     notation[notation_length++] = '0' + 8 - GET_ROW(GET_FROM(move));
 
-    // Destination Square
     notation[notation_length++] = GET_COL(GET_TO(move)) + 'a';
     notation[notation_length++] = '0' + 8 - GET_ROW(GET_TO(move));
 
@@ -1287,7 +1273,7 @@ CHESSDEF bool is_legal_move(char board[64], const Move move, Castle castle, Move
 CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count, int (*cmp[])(Move a, Move b), size_t cmp_count)
 {
     if (cmp == NULL || cmp_count == 0) {
-        return;  // No comparisons, no sorting
+        return;
     }
 
     bool swapped;
@@ -1300,16 +1286,15 @@ CHESSDEF void sort_moves(Move valid_moves[MAX_VALID_MOVES], unsigned char count,
             Move b = valid_moves[i + 1];
             int result = 0;
 
-            // Apply each comparison function in order of priority
+
             for (size_t j = 0; j < cmp_count; j++) {
                 result = cmp[j](a, b);
                 if (result != 0) {
-                    break;  // If a difference is found, no need to check further comparison functions
+                    break;
                 }
             }
 
             if (result > 0) {
-                // Swap the moves if the order is incorrect (a > b)
                 valid_moves[i] = b;
                 valid_moves[i + 1] = a;
                 swapped = true;
